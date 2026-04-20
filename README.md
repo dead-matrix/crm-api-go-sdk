@@ -76,6 +76,41 @@ func main() {
 - Вызывайте `Close()` при завершении работы процесса, чтобы закрыть idle connections кастомного транспорта.
 - SDK не загружает `.env` автоматически.
 
+## Платёжные провайдеры
+
+SDK валидирует имя провайдера в `InvoiceDraftInput.Validate()` ещё до HTTP-запроса.
+Используйте предопределённые константы, чтобы не опечататься:
+
+```go
+draft, err := client.CreateInvoiceDraft(ctx, crmapi.InvoiceDraftInput{
+    ClientID:        123,
+    ProductIDs:      []int64{1, 2},
+    DiscountPercent: 10,
+    Months:          1,
+    Provider:        string(crmapi.PaymentProviderPlatega), // yookassa | cryptocloud | heleket | platega
+})
+```
+
+Список поддерживаемых провайдеров доступен через `crmapi.SupportedPaymentProviders` —
+удобно использовать для построения UI-списков:
+
+```go
+for _, p := range crmapi.SupportedPaymentProviders {
+    fmt.Println(p) // yookassa, cryptocloud, heleket, platega
+}
+```
+
+Проверить значение без обращения к CRM:
+
+```go
+if !crmapi.PaymentProvider("platega").IsValid() {
+    // не поддерживается текущей версией SDK
+}
+```
+
+Валидация case-insensitive и trim'ит пробелы; значение нормализуется к нижнему регистру
+перед отправкой в CRM API (см. `InvoiceDraftInput.normalized()`).
+
 ## Обработка ошибок
 
 SDK возвращает типизированные ошибки:

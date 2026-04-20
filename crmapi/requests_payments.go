@@ -2,6 +2,40 @@ package crmapi
 
 import "strings"
 
+// PaymentProvider — платёжный провайдер, поддерживаемый CRM API.
+// Используйте предопределённые константы ниже. Значения передаются в CRM
+// в нижнем регистре (InvoiceDraftInput.normalized() нормализует ввод).
+type PaymentProvider string
+
+const (
+	PaymentProviderYooKassa    PaymentProvider = "yookassa"
+	PaymentProviderCryptoCloud PaymentProvider = "cryptocloud"
+	PaymentProviderHeleket     PaymentProvider = "heleket"
+	PaymentProviderPlatega     PaymentProvider = "platega"
+)
+
+// SupportedPaymentProviders — список всех поддерживаемых провайдеров.
+// Порядок соответствует порядку константам; используется в валидации и
+// может применяться для генерации UI-списков на стороне потребителя.
+var SupportedPaymentProviders = []PaymentProvider{
+	PaymentProviderYooKassa,
+	PaymentProviderCryptoCloud,
+	PaymentProviderHeleket,
+	PaymentProviderPlatega,
+}
+
+// IsValid возвращает true, если значение совпадает с одним из поддерживаемых
+// провайдеров (case-insensitive, trim).
+func (p PaymentProvider) IsValid() bool {
+	normalized := strings.ToLower(strings.TrimSpace(string(p)))
+	for _, sp := range SupportedPaymentProviders {
+		if normalized == string(sp) {
+			return true
+		}
+	}
+	return false
+}
+
 type PaymentsCalculateInput struct {
 	ProductIDs      []int64 `json:"product_ids"`
 	DiscountPercent int64   `json:"discount_percent"`
@@ -53,12 +87,12 @@ func (in InvoiceDraftInput) Validate() error {
 		return &ValidationError{Message: "months must be a positive integer"}
 	}
 
-	switch strings.ToLower(strings.TrimSpace(in.Provider)) {
-	case "yookassa", "cryptocloud", "heleket":
-		return nil
-	default:
-		return &ValidationError{Message: "provider must be one of: yookassa, cryptocloud, heleket"}
+	if !PaymentProvider(in.Provider).IsValid() {
+		return &ValidationError{
+			Message: "provider must be one of: yookassa, cryptocloud, heleket, platega",
+		}
 	}
+	return nil
 }
 
 func (in InvoiceDraftInput) normalized() InvoiceDraftInput {
