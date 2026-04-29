@@ -73,6 +73,30 @@ type RefundResult struct {
 	Status   *string `json:"status,omitempty"`
 }
 
+// Sale is one element of GET /api/payments/sales response.
+//
+// Category is one of "main" | "extra" | "other" — derived from product
+// category_key on the line items.
+//
+// RepeatPurchase is true when the client has already paid in this same
+// category before (per-category, not overall).
+type Sale struct {
+	UUID           string     `json:"uuid"`
+	UserID         int64      `json:"user_id"`
+	StaffID        *int64     `json:"staff_id,omitempty"`
+	AmountMinor    int64      `json:"amount_minor"`
+	Category       string     `json:"category"`
+	RepeatPurchase bool       `json:"repeat_purchase"`
+	DatePaid       *time.Time `json:"date_paid,omitempty"`
+}
+
+// MonthlySalesResult is the response of GET /api/payments/sales — all paid
+// payments for the current calendar month with no filters.
+type MonthlySalesResult struct {
+	MonthStart *time.Time `json:"month_start,omitempty"`
+	Payments   []Sale     `json:"payments"`
+}
+
 type InvoiceInfoResult struct {
 	UUID            string           `json:"uuid"`
 	Status          string           `json:"status"`

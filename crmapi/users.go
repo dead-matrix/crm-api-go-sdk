@@ -8,6 +8,11 @@ import (
 	"github.com/dead-matrix/crm-api-go-sdk/crmapi/internal/utils"
 )
 
+// CreateUser creates a user via POST /api/users (idempotent).
+//
+// If a registration for (UserID, BotID) already exists on the server, the
+// response carries Created=false plus the existing record — no side effects.
+// Otherwise Created=true and the fields describe the freshly created record.
 func (c *Client) CreateUser(ctx context.Context, input CreateUserInput) (*CreateUserResult, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
@@ -16,15 +21,100 @@ func (c *Client) CreateUser(ctx context.Context, input CreateUserInput) (*Create
 	input = input.normalized()
 
 	var raw struct {
-		Created bool `json:"created"`
+		Created  bool    `json:"created"`
+		UserID   int64   `json:"user_id"`
+		FullName string  `json:"full_name"`
+		Username *string `json:"username"`
+		BotID    int64   `json:"bot_id"`
+		Refer    *string `json:"refer"`
+		DateReg  *string `json:"date_reg"`
 	}
 
 	if err := c.post(ctx, "/api/users", nil, true, input, &raw); err != nil {
 		return nil, err
 	}
 
+	var dateReg *time.Time
+	if raw.DateReg != nil {
+		dateReg = utils.ParseTime(*raw.DateReg)
+	}
+
 	return &CreateUserResult{
-		Created: raw.Created,
+		Created:  raw.Created,
+		UserID:   raw.UserID,
+		FullName: raw.FullName,
+		Username: raw.Username,
+		BotID:    raw.BotID,
+		Refer:    raw.Refer,
+		DateReg:  dateReg,
+	}, nil
+}
+
+// ListUsers fetches a paginated list of users registered for the given bot.
+//
+// botID is required (>0). limit must be >0 (CRM allows up to 1_000_000;
+// the recommended default mirrors the Python SDK at 100_000). offset must be >=0.
+//
+// Each ListUserItem includes a Restricted flag — clients that consume CRM
+// messages should skip restricted users.
+func (c *Client) ListUsers(ctx context.Context, botID int64, limit int64, offset int64) (*ListUsersResult, error) {
+	if botID <= 0 {
+		return nil, &ValidationError{Message: "bot_id must be a positive integer"}
+	}
+	if limit <= 0 {
+		return nil, &ValidationError{Message: "limit must be a positive integer"}
+	}
+	if offset < 0 {
+		return nil, &ValidationError{Message: "offset must be non-negative"}
+	}
+
+	query := map[string]string{
+		"bot_id": fmt.Sprintf("%d", botID),
+		"limit":  fmt.Sprintf("%d", limit),
+		"offset": fmt.Sprintf("%d", offset),
+	}
+
+	var raw struct {
+		BotID  int64 `json:"bot_id"`
+		Limit  int64 `json:"limit"`
+		Offset int64 `json:"offset"`
+		Count  int64 `json:"count"`
+		Items  []struct {
+			UserID     int64   `json:"user_id"`
+			FullName   string  `json:"full_name"`
+			Username   *string `json:"username"`
+			DateReg    *string `json:"date_reg"`
+			Refer      *string `json:"refer"`
+			Restricted bool    `json:"restricted"`
+		} `json:"items"`
+	}
+
+	if err := c.get(ctx, "/api/users", query, true, &raw); err != nil {
+		return nil, err
+	}
+
+	items := make([]ListUserItem, 0, len(raw.Items))
+	for _, it := range raw.Items {
+		var dateReg *time.Time
+		if it.DateReg != nil {
+			dateReg = utils.ParseTime(*it.DateReg)
+		}
+		items = append(items, ListUserItem{
+			UserID:     it.UserID,
+			FullName:   it.FullName,
+			Username:   it.Username,
+			DateReg:    dateReg,
+			Refer:      it.Refer,
+			Restricted: it.Restricted,
+		})
+	}
+
+	return &ListUsersResult{
+		BotID:  raw.BotID,
+		Limit:  raw.Limit,
+		Offset: raw.Offset,
+		Count:  raw.Count,
+		Items:  items,
 	}, nil
 }
 

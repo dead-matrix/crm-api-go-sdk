@@ -279,6 +279,58 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64) ([]PaymentHisto
 	return items, nil
 }
 
+// GetMonthlySales fetches all paid payments for the current calendar month
+// via GET /api/payments/sales.
+//
+// Each Sale has Category ("main" | "extra" | "other") and RepeatPurchase
+// per-category. Attribution to a specific seller is the consumer's
+// responsibility — the SDK just returns raw payments.
+func (c *Client) GetMonthlySales(ctx context.Context) (*MonthlySalesResult, error) {
+	var raw struct {
+		MonthStart *string `json:"month_start"`
+		Payments   []struct {
+			UUID           string  `json:"uuid"`
+			UserID         int64   `json:"user_id"`
+			StaffID        *int64  `json:"staff_id"`
+			AmountMinor    int64   `json:"amount_minor"`
+			Category       string  `json:"category"`
+			RepeatPurchase bool    `json:"repeat_purchase"`
+			DatePaid       *string `json:"date_paid"`
+		} `json:"payments"`
+	}
+
+	if err := c.get(ctx, "/api/payments/sales", nil, true, &raw); err != nil {
+		return nil, err
+	}
+
+	var monthStart *time.Time
+	if raw.MonthStart != nil {
+		monthStart = utils.ParseTime(*raw.MonthStart)
+	}
+
+	sales := make([]Sale, 0, len(raw.Payments))
+	for _, p := range raw.Payments {
+		var datePaid *time.Time
+		if p.DatePaid != nil {
+			datePaid = utils.ParseTime(*p.DatePaid)
+		}
+		sales = append(sales, Sale{
+			UUID:           p.UUID,
+			UserID:         p.UserID,
+			StaffID:        p.StaffID,
+			AmountMinor:    p.AmountMinor,
+			Category:       p.Category,
+			RepeatPurchase: p.RepeatPurchase,
+			DatePaid:       datePaid,
+		})
+	}
+
+	return &MonthlySalesResult{
+		MonthStart: monthStart,
+		Payments:   sales,
+	}, nil
+}
+
 func (c *Client) ConfirmPayment(ctx context.Context, uuid string) (*ConfirmPaymentResult, error) {
 	if uuid == "" {
 		return nil, &ValidationError{Message: "uuid must not be empty"}
