@@ -177,52 +177,72 @@ func (c *Client) GetInvoiceInfo(ctx context.Context, uuid string) (*InvoiceInfoR
 	}, nil
 }
 
-func (c *Client) GetPayments(ctx context.Context, userID *int64) ([]PaymentHistoryItem, error) {
-	query := map[string]string{}
+// GetPayments fetches a paginated payment history via GET /api/payments.
+//
+// userID is optional (nil → all payments). limit must be >0 (server allows up
+// to 1_000_000; 100_000 mirrors the Python SDK default). offset must be >=0.
+// Server orders by date_create DESC.
+//
+// BREAKING (since v0.4.0 of the API): response is now an envelope with
+// pagination metadata, not a flat array. Returns *PaymentsListResult.
+func (c *Client) GetPayments(ctx context.Context, userID *int64, limit int64, offset int64) (*PaymentsListResult, error) {
+	if limit <= 0 {
+		return nil, &ValidationError{Message: "limit must be a positive integer"}
+	}
+	if offset < 0 {
+		return nil, &ValidationError{Message: "offset must be non-negative"}
+	}
+
+	query := map[string]string{
+		"limit":  fmt.Sprintf("%d", limit),
+		"offset": fmt.Sprintf("%d", offset),
+	}
 	if userID != nil {
 		if *userID <= 0 {
 			return nil, &ValidationError{Message: "user_id must be a positive integer"}
 		}
 		query["user_id"] = fmt.Sprintf("%d", *userID)
 	}
-	if len(query) == 0 {
-		query = nil
-	}
 
-	var raw []struct {
-		UUID            string           `json:"uuid"`
-		Status          string           `json:"status"`
-		StatusRU        string           `json:"status_ru"`
-		ClientID        int64            `json:"client_id"`
-		ClientEmail     *string          `json:"client_email"`
-		RefererID       *int64           `json:"referer_id"`
-		StaffID         *int64           `json:"staff_id"`
-		AmountMinor     int64            `json:"amount_minor"`
-		FXRateRUBUSD    *float64         `json:"fx_rate_rub_usd"`
-		Currency        string           `json:"currency"`
-		DiscountPercent *int64           `json:"discount_percent"`
-		Description     *string          `json:"description"`
-		Items           []map[string]any `json:"items"`
-		Provider        *string          `json:"provider"`
-		PayLink         *string          `json:"pay_link"`
-		PayURL          *string          `json:"pay_url"`
-		DateCreate      *string          `json:"date_create"`
-		DateInvoiced    *string          `json:"date_invoiced"`
-		DatePaid        *string          `json:"date_paid"`
-		Activation      []struct {
-			BotID  *int64 `json:"bot_id"`
-			Code   string `json:"code"`
-			IsUsed bool   `json:"is_used"`
-			URL    string `json:"url"`
-		} `json:"activation"`
+	var raw struct {
+		Limit  int64 `json:"limit"`
+		Offset int64 `json:"offset"`
+		Count  int64 `json:"count"`
+		Items  []struct {
+			UUID            string           `json:"uuid"`
+			Status          string           `json:"status"`
+			StatusRU        string           `json:"status_ru"`
+			ClientID        int64            `json:"client_id"`
+			ClientEmail     *string          `json:"client_email"`
+			RefererID       *int64           `json:"referer_id"`
+			StaffID         *int64           `json:"staff_id"`
+			AmountMinor     int64            `json:"amount_minor"`
+			FXRateRUBUSD    *float64         `json:"fx_rate_rub_usd"`
+			Currency        string           `json:"currency"`
+			DiscountPercent *int64           `json:"discount_percent"`
+			Description     *string          `json:"description"`
+			Items           []map[string]any `json:"items"`
+			Provider        *string          `json:"provider"`
+			PayLink         *string          `json:"pay_link"`
+			PayURL          *string          `json:"pay_url"`
+			DateCreate      *string          `json:"date_create"`
+			DateInvoiced    *string          `json:"date_invoiced"`
+			DatePaid        *string          `json:"date_paid"`
+			Activation      []struct {
+				BotID  *int64 `json:"bot_id"`
+				Code   string `json:"code"`
+				IsUsed bool   `json:"is_used"`
+				URL    string `json:"url"`
+			} `json:"activation"`
+		} `json:"items"`
 	}
 
 	if err := c.get(ctx, "/api/payments", query, true, &raw); err != nil {
 		return nil, err
 	}
 
-	items := make([]PaymentHistoryItem, 0, len(raw))
-	for _, p := range raw {
+	items := make([]PaymentHistoryItem, 0, len(raw.Items))
+	for _, p := range raw.Items {
 		activation := make([]ActivationLink, 0, len(p.Activation))
 		for _, ac := range p.Activation {
 			activation = append(activation, ActivationLink{
@@ -276,7 +296,12 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64) ([]PaymentHisto
 		})
 	}
 
-	return items, nil
+	return &PaymentsListResult{
+		Limit:  raw.Limit,
+		Offset: raw.Offset,
+		Count:  raw.Count,
+		Items:  items,
+	}, nil
 }
 
 // GetMonthlySales fetches all paid payments for the current calendar month

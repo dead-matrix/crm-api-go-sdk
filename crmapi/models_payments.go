@@ -73,6 +73,17 @@ type RefundResult struct {
 	Status   *string `json:"status,omitempty"`
 }
 
+// PaymentsListResult is the response of GET /api/payments?user_id=&limit=&offset=
+//
+// Sorted by date_create DESC server-side. Count is the number of items in the
+// current page (NOT the total record count across pages).
+type PaymentsListResult struct {
+	Limit  int64                `json:"limit"`
+	Offset int64                `json:"offset"`
+	Count  int64                `json:"count"`
+	Items  []PaymentHistoryItem `json:"items"`
+}
+
 // Sale is one element of GET /api/payments/sales response.
 //
 // Category is one of "main" | "extra" | "other" — derived from product

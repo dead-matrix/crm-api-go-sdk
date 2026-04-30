@@ -127,12 +127,12 @@ func TestRealAPI_Smoke(t *testing.T) {
 	})
 
 	t.Run("getPayments", func(t *testing.T) {
-		payments, err := client.GetPayments(ctx, &userID)
+		payments, err := client.GetPayments(ctx, &userID, 100, 0)
 		if err != nil {
 			t.Fatalf("GetPayments() error: %v", err)
 		}
 		if payments == nil {
-			t.Fatalf("GetPayments() returned nil slice")
+			t.Fatalf("GetPayments() returned nil result")
 		}
 	})
 
