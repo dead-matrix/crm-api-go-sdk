@@ -20,11 +20,19 @@ func (e *ConfigError) Error() string {
 func (e *ConfigError) isSDKError() {}
 
 // ValidationError reports invalid request input.
+//
+// Code is the upstream error_code surfaced by CRM for HTTP 400/422
+// responses (e.g. "invalid_token"). Empty when the validation came
+// from the SDK itself (client-side checks).
 type ValidationError struct {
 	Message string
+	Code    string
 }
 
 func (e *ValidationError) Error() string {
+	if e.Code != "" {
+		return fmt.Sprintf("%s (code=%s)", e.Message, e.Code)
+	}
 	return e.Message
 }
 

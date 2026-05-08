@@ -568,6 +568,7 @@ func (c *Client) mapAPIError(status int, message, code string) error {
 	case status == http.StatusBadRequest || status == http.StatusUnprocessableEntity || strings.EqualFold(code, "VALIDATION_ERROR"):
 		return &ValidationError{
 			Message: message,
+			Code:    code,
 		}
 	default:
 		return &APIError{
