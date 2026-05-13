@@ -3,10 +3,18 @@ package crmapi
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/dead-matrix/crm-api-go-sdk/crmapi/internal/utils"
+)
+
+// publicIDPattern accepts canonical 36-char UUID (8-4-4-4-12 hex,
+// case-insensitive). Matches what CRM-API regex enforces — pre-validating
+// here gives a fast, type-safe error path before the HTTP round-trip.
+var publicIDPattern = regexp.MustCompile(
+	`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`,
 )
 
 // itemTypeSet lists every valid value for ReplyTemplateItem.Type.
@@ -240,6 +248,7 @@ func (c *Client) ReplyTemplatesDelete(ctx context.Context, templateID int64) (*D
 func (in CreateReplyTemplateInput) normalized() CreateReplyTemplateInput {
 	in.Title = strings.TrimSpace(in.Title)
 	in.Kind = strings.TrimSpace(in.Kind)
+	in.PublicID = strings.ToLower(strings.TrimSpace(in.PublicID))
 	// Item caption is normalised on per-item basis below; pointer
 	// nilness is preserved (the API distinguishes nil caption from
 	// empty string for some flows on the future PATCH endpoint).
@@ -273,6 +282,9 @@ func (in CreateReplyTemplateInput) validate() error {
 	case ReplyTemplateKindSingle, ReplyTemplateKindAlbum:
 	default:
 		return &ValidationError{Message: fmt.Sprintf("kind must be %q or %q", ReplyTemplateKindSingle, ReplyTemplateKindAlbum)}
+	}
+	if in.PublicID != "" && !publicIDPattern.MatchString(in.PublicID) {
+		return &ValidationError{Message: "public_id must be a 36-char UUID (8-4-4-4-12 hex)"}
 	}
 	if len(in.Items) == 0 {
 		return &ValidationError{Message: "items must contain at least one element"}

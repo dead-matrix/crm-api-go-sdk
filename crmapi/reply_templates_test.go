@@ -612,6 +612,148 @@ func TestReplyTemplatesDeleteValidatesID(t *testing.T) {
 	}
 }
 
+// ----------------------------------------------------------------------------
+// Phase 3: client-supplied public_id
+// ----------------------------------------------------------------------------
+
+func TestReplyTemplatesCreate_PublicIDRoundTrip(t *testing.T) {
+	var capturedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/staff/123/auth":
+			fmt.Fprint(w, `{"status":"success","data":{"token":"jwt-1","expires_at":"2030-01-01T00:00:00Z"}}`)
+		case "/api/reply-templates":
+			capturedBody, _ = io.ReadAll(r.Body)
+			fmt.Fprint(w, `{"status":"success","data":{
+				"id": 200, "publicId": "01234567-89ab-cdef-0123-456789abcdef",
+				"title": "x", "kind": "single",
+				"creator": {"employeeId": 1, "name": null},
+				"items": [], "createdAt": null, "updatedAt": null
+			}}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := mustNewClient(t, server.URL, server.Client())
+	caption := "hi"
+	full, err := client.ReplyTemplatesCreate(context.Background(), CreateReplyTemplateInput{
+		Title: "x", Kind: ReplyTemplateKindSingle,
+		PublicID: "01234567-89AB-CDEF-0123-456789ABCDEF",
+		Items: []ReplyTemplateItem{
+			{Position: 0, Type: ReplyTemplateItemTypeText, Caption: &caption},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ReplyTemplatesCreate(public_id) error: %v", err)
+	}
+	if full.PublicID != "01234567-89ab-cdef-0123-456789abcdef" {
+		t.Fatalf("response public_id = %q", full.PublicID)
+	}
+	// camelCase + нормализованный (lower-case) publicId уехал на сервер.
+	if !strings.Contains(string(capturedBody), `"publicId":"01234567-89ab-cdef-0123-456789abcdef"`) {
+		t.Fatalf("body missing or malformed publicId: %s", capturedBody)
+	}
+}
+
+func TestReplyTemplatesCreate_PublicIDOptionalOmitWhenEmpty(t *testing.T) {
+	var capturedBody []byte
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/staff/123/auth":
+			fmt.Fprint(w, `{"status":"success","data":{"token":"jwt-1","expires_at":"2030-01-01T00:00:00Z"}}`)
+		case "/api/reply-templates":
+			capturedBody, _ = io.ReadAll(r.Body)
+			fmt.Fprint(w, `{"status":"success","data":{
+				"id": 1, "publicId": "server-generated", "title": "x", "kind": "single",
+				"creator": {"employeeId": 1, "name": null},
+				"items": [], "createdAt": null, "updatedAt": null
+			}}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := mustNewClient(t, server.URL, server.Client())
+	caption := "hi"
+	_, err := client.ReplyTemplatesCreate(context.Background(), CreateReplyTemplateInput{
+		Title: "x", Kind: ReplyTemplateKindSingle,
+		Items: []ReplyTemplateItem{
+			{Position: 0, Type: ReplyTemplateItemTypeText, Caption: &caption},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ReplyTemplatesCreate error: %v", err)
+	}
+	if strings.Contains(string(capturedBody), `"publicId"`) {
+		t.Fatalf("publicId must NOT appear when empty: %s", capturedBody)
+	}
+}
+
+func TestReplyTemplatesCreate_PublicIDBadFormatRejected(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("HTTP must not be called on validation failure: %s", r.URL.Path)
+	}))
+	defer server.Close()
+
+	client := mustNewClient(t, server.URL, server.Client())
+	caption := "x"
+	for _, bad := range []string{
+		"not-a-uuid",
+		"01234567-89ab-cdef-0123-456789abcde",
+		"0123456789abcdef0123456789abcdef",
+	} {
+		_, err := client.ReplyTemplatesCreate(context.Background(), CreateReplyTemplateInput{
+			Title: "x", Kind: ReplyTemplateKindSingle,
+			PublicID: bad,
+			Items: []ReplyTemplateItem{
+				{Position: 0, Type: ReplyTemplateItemTypeText, Caption: &caption},
+			},
+		})
+		var ve *ValidationError
+		if !errorsAsValidation(err, &ve) {
+			t.Fatalf("public_id=%q expected ValidationError, got %v", bad, err)
+		}
+	}
+}
+
+func TestReplyTemplatesCreate_PublicIDDuplicate409SurfacesAsAPIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/staff/123/auth":
+			fmt.Fprint(w, `{"status":"success","data":{"token":"jwt-1","expires_at":"2030-01-01T00:00:00Z"}}`)
+		case "/api/reply-templates":
+			w.WriteHeader(http.StatusConflict)
+			fmt.Fprint(w, `{"status":"error","message":"public_id already exists"}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := mustNewClient(t, server.URL, server.Client())
+	caption := "hi"
+	_, err := client.ReplyTemplatesCreate(context.Background(), CreateReplyTemplateInput{
+		Title: "x", Kind: ReplyTemplateKindSingle,
+		PublicID: "01234567-89ab-cdef-0123-456789abcdef",
+		Items: []ReplyTemplateItem{
+			{Position: 0, Type: ReplyTemplateItemTypeText, Caption: &caption},
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected error on 409, got nil")
+	}
+	apiErr, ok := err.(*APIError)
+	if !ok {
+		t.Fatalf("expected *APIError, got %T (%v)", err, err)
+	}
+	if apiErr.Status != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", apiErr.Status)
+	}
+}
+
 func TestReplyTemplatesDelete403SurfacesAsAuthError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

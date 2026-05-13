@@ -83,10 +83,19 @@ type ReplyTemplateFull struct {
 // kind="single" requires exactly 1 item; kind="album" requires 2..10
 // items, all of Type ∈ {"photo","video","gif"}, with Caption allowed
 // only on Position=0.
+//
+// PublicID is optional. Trusted clients (e.g. the messenger's
+// save-as-template flow) mint a UUID locally so the same identifier
+// can drive the S3 object-key path (`shared/reply-templates/{public_id}/...`)
+// before the CRM POST happens — that turns "copy media then create
+// template" into an atomic, single-round-trip sequence. Empty string
+// means "let the CRM generate one"; a duplicate value surfaces as an
+// APIError with HTTP 409 from upstream.
 type CreateReplyTemplateInput struct {
-	Title string              `json:"title"`
-	Kind  string              `json:"kind"`
-	Items []ReplyTemplateItem `json:"items"`
+	Title    string              `json:"title"`
+	Kind     string              `json:"kind"`
+	PublicID string              `json:"publicId,omitempty"`
+	Items    []ReplyTemplateItem `json:"items"`
 }
 
 // DeleteReplyTemplateResult is what ReplyTemplatesDelete returns on
