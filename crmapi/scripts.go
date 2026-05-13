@@ -2,93 +2,12 @@ package crmapi
 
 import (
 	"context"
-	"fmt"
-	"strings"
 )
 
-func (c *Client) ScriptsList(ctx context.Context) ([]ScriptItem, error) {
-	var raw []struct {
-		ID      int64   `json:"id"`
-		Title   string  `json:"title"`
-		Creator *string `json:"creator"`
-	}
-
-	if err := c.get(ctx, "/api/scripts", nil, true, &raw); err != nil {
-		return nil, err
-	}
-
-	items := make([]ScriptItem, 0, len(raw))
-	for _, item := range raw {
-		items = append(items, ScriptItem{
-			ID:      item.ID,
-			Title:   item.Title,
-			Creator: item.Creator,
-		})
-	}
-
-	return items, nil
-}
-
-func (c *Client) ScriptsGet(ctx context.Context, scriptID int64) (*ScriptFull, error) {
-	if scriptID <= 0 {
-		return nil, &ValidationError{Message: "script_id must be a positive integer"}
-	}
-
-	var raw struct {
-		ID    int64  `json:"id"`
-		Title string `json:"title"`
-		Text  string `json:"text"`
-	}
-
-	if err := c.get(ctx, fmt.Sprintf("/api/scripts/%d", scriptID), nil, true, &raw); err != nil {
-		return nil, err
-	}
-
-	return &ScriptFull{
-		ID:    raw.ID,
-		Title: raw.Title,
-		Text:  raw.Text,
-	}, nil
-}
-
-func (c *Client) ScriptsCreate(ctx context.Context, title string, text string) (*ScriptFull, error) {
-	title = strings.TrimSpace(title)
-	text = strings.TrimSpace(text)
-
-	if title == "" {
-		return nil, &ValidationError{Message: "title must not be empty"}
-	}
-	if text == "" {
-		return nil, &ValidationError{Message: "text must not be empty"}
-	}
-	if len(title) > 255 {
-		return nil, &ValidationError{Message: "title must be at most 255 characters"}
-	}
-	if len(text) > 4096 {
-		return nil, &ValidationError{Message: "text must be at most 4096 characters"}
-	}
-
-	body := map[string]string{
-		"title": title,
-		"text":  text,
-	}
-
-	var raw struct {
-		ID    int64  `json:"id"`
-		Title string `json:"title"`
-		Text  string `json:"text"`
-	}
-
-	if err := c.post(ctx, "/api/scripts", nil, true, body, &raw); err != nil {
-		return nil, err
-	}
-
-	return &ScriptFull{
-		ID:    raw.ID,
-		Title: raw.Title,
-		Text:  raw.Text,
-	}, nil
-}
+// Sales-decks endpoints (POST /api/scripts/price, POST /api/scripts/tools).
+// Phase 5 removed the legacy text-quick-reply trio (ScriptsList / ScriptsGet
+// / ScriptsCreate) on the CRM-API side; the SDK methods are deleted in
+// parallel. Quick replies now go through reply_templates.go.
 
 func (c *Client) ScriptsPrice(ctx context.Context, options []int64) ([]PriceMediaItem, error) {
 	if len(options) == 0 {

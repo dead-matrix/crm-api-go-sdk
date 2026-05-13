@@ -1,16 +1,9 @@
 package crmapi
 
-type ScriptItem struct {
-	ID      int64   `json:"id"`
-	Title   string  `json:"title"`
-	Creator *string `json:"creator,omitempty"`
-}
-
-type ScriptFull struct {
-	ID    int64  `json:"id"`
-	Title string `json:"title"`
-	Text  string `json:"text"`
-}
+// Sales-decks payload types. ScriptItem / ScriptFull (legacy text quick
+// replies) were removed in Phase 5 along with the ScriptsList /
+// ScriptsGet / ScriptsCreate client methods. For quick replies use
+// reply_templates.go (ReplyTemplateFull, etc.) instead.
 
 type PriceMediaItem struct {
 	Text  string   `json:"text"`
