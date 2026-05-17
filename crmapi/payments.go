@@ -129,6 +129,7 @@ func (c *Client) GetInvoiceInfo(ctx context.Context, uuid string) (*InvoiceInfoR
 		DateCreate      *string          `json:"date_create"`
 		DateInvoiced    *string          `json:"date_invoiced"`
 		DatePaid        *string          `json:"date_paid"`
+		PaymentMethod   *string          `json:"payment_method"`
 	}
 
 	if err := c.get(ctx, fmt.Sprintf("/api/payments/invoice/%s", uuid), nil, true, &raw); err != nil {
@@ -174,6 +175,7 @@ func (c *Client) GetInvoiceInfo(ctx context.Context, uuid string) (*InvoiceInfoR
 		DateCreate:      dateCreate,
 		DateInvoiced:    dateInvoiced,
 		DatePaid:        datePaid,
+		PaymentMethod:   raw.PaymentMethod,
 	}, nil
 }
 
@@ -228,6 +230,7 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64, limit int64, of
 			DateCreate      *string          `json:"date_create"`
 			DateInvoiced    *string          `json:"date_invoiced"`
 			DatePaid        *string          `json:"date_paid"`
+			PaymentMethod   *string          `json:"payment_method"`
 			Activation      []struct {
 				BotID  *int64 `json:"bot_id"`
 				Code   string `json:"code"`
@@ -293,6 +296,7 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64, limit int64, of
 			DateInvoiced:    dateInvoiced,
 			DatePaid:        datePaid,
 			Activation:      activation,
+			PaymentMethod:   p.PaymentMethod,
 		})
 	}
 

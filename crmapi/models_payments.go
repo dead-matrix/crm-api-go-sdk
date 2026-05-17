@@ -58,6 +58,10 @@ type PaymentHistoryItem struct {
 	DateInvoiced    *time.Time       `json:"date_invoiced,omitempty"`
 	DatePaid        *time.Time       `json:"date_paid,omitempty"`
 	Activation      []ActivationLink `json:"activation"`
+	// Способ оплаты внутри провайдера ("sbp" | "crypto" для platega; nil
+	// для исторических записей и других провайдеров). Опционально:
+	// старые версии CRM-API поле не возвращают.
+	PaymentMethod *string `json:"payment_method,omitempty"`
 }
 
 type ConfirmPaymentResult struct {
@@ -128,4 +132,8 @@ type InvoiceInfoResult struct {
 	DateCreate      *time.Time       `json:"date_create,omitempty"`
 	DateInvoiced    *time.Time       `json:"date_invoiced,omitempty"`
 	DatePaid        *time.Time       `json:"date_paid,omitempty"`
+	// Способ оплаты внутри провайдера ("sbp" | "crypto" для platega; nil
+	// для исторических записей и других провайдеров). Опционально:
+	// старые версии CRM-API поле не возвращают.
+	PaymentMethod *string `json:"payment_method,omitempty"`
 }
