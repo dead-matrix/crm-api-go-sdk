@@ -45,8 +45,9 @@ func TestClient_ChangeDialogStatus(t *testing.T) {
 	}
 }
 
-// ClearDialogStatus отправляет payload БЕЗ status_id и возвращает пустую
-// строку, когда сервер отвечает status=null.
+// ClearDialogStatus отправляет payload с status_id=null (явно, не отсутствием
+// поля — иначе CRM-API возвращает 422) и нормализует ответ status=null в
+// пустую строку.
 func TestClient_ClearDialogStatus(t *testing.T) {
 	var captured map[string]any
 
@@ -74,8 +75,8 @@ func TestClient_ClearDialogStatus(t *testing.T) {
 		t.Fatalf("status = %q, want empty (cleared)", res.Status)
 	}
 
-	if _, ok := captured["status_id"]; ok {
-		t.Fatalf("status_id must not be sent in clear payload: %+v", captured)
+	if v, ok := captured["status_id"]; !ok || v != nil {
+		t.Fatalf("status_id must be present and null: %+v", captured)
 	}
 	if captured["user_id"] != float64(42) {
 		t.Fatalf("user_id mismatch: %+v", captured)
