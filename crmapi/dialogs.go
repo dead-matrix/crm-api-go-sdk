@@ -101,6 +101,32 @@ func (c *Client) ChangeDialogStatus(ctx context.Context, userID int64, statusID 
 	}, nil
 }
 
+// ClearDialogStatus снимает активный статус диалога (POST /api/dialogs/status
+// без status_id в payload). Сервер удаляет запись DialogStatus для диалога
+// в его текущем департаменте и возвращает status=null — здесь это
+// нормализуется в пустую строку в ChangeStatusResult.Status.
+func (c *Client) ClearDialogStatus(ctx context.Context, userID int64) (*ChangeStatusResult, error) {
+	if userID <= 0 {
+		return nil, &ValidationError{Message: "user_id must be a positive integer"}
+	}
+
+	body := map[string]int64{"user_id": userID}
+
+	var raw struct {
+		Status *string `json:"status"`
+	}
+
+	if err := c.post(ctx, "/api/dialogs/status", nil, true, body, &raw); err != nil {
+		return nil, err
+	}
+
+	status := ""
+	if raw.Status != nil {
+		status = *raw.Status
+	}
+	return &ChangeStatusResult{Status: status}, nil
+}
+
 func (c *Client) TransferDialog(ctx context.Context, userID int64, toDepartment string) (*TransferDialogResult, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
