@@ -1,6 +1,7 @@
 package crmapi
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -182,5 +183,145 @@ func TestSupportedPaymentProvidersList(t *testing.T) {
 		if !want[p] {
 			t.Errorf("unexpected provider: %q", p)
 		}
+	}
+}
+
+// --- Payment method validation -------------------------------------------------
+
+func TestPaymentMethodConstants(t *testing.T) {
+	if PaymentMethodSBP != "sbp" {
+		t.Fatalf("PaymentMethodSBP = %q, want %q", PaymentMethodSBP, "sbp")
+	}
+	if PaymentMethodCrypto != "crypto" {
+		t.Fatalf("PaymentMethodCrypto = %q, want %q", PaymentMethodCrypto, "crypto")
+	}
+}
+
+func TestPaymentMethodIsValid(t *testing.T) {
+	if !PaymentMethodSBP.IsValid() {
+		t.Fatalf("PaymentMethodSBP must be valid")
+	}
+	if !PaymentMethodCrypto.IsValid() {
+		t.Fatalf("PaymentMethodCrypto must be valid")
+	}
+	if PaymentMethod("cards").IsValid() {
+		t.Fatalf("'cards' must not be valid")
+	}
+	if !PaymentMethod(" SBP ").IsValid() {
+		t.Fatalf("trimmed/upper-case sbp must be valid")
+	}
+}
+
+func TestInvoiceDraftAcceptsValidPaymentMethods(t *testing.T) {
+	for _, m := range SupportedPaymentMethods {
+		m := m
+		t.Run(string(m), func(t *testing.T) {
+			err := (InvoiceDraftInput{
+				ClientID:        1,
+				ProductIDs:      []int64{1},
+				DiscountPercent: 0,
+				Months:          1,
+				Provider:        "platega",
+				PaymentMethod:   &m,
+			}).Validate()
+			if err != nil {
+				t.Fatalf("expected nil error for payment_method=%q, got %v", m, err)
+			}
+		})
+	}
+}
+
+func TestInvoiceDraftRejectsUnsupportedPaymentMethod(t *testing.T) {
+	bad := PaymentMethod("cards")
+	err := (InvoiceDraftInput{
+		ClientID:        1,
+		ProductIDs:      []int64{1},
+		DiscountPercent: 0,
+		Months:          1,
+		Provider:        "platega",
+		PaymentMethod:   &bad,
+	}).Validate()
+	var ve *ValidationError
+	if !errorsAsValidation(err, &ve) {
+		t.Fatalf("expected ValidationError, got %v", err)
+	}
+	if !strings.Contains(ve.Message, "sbp") || !strings.Contains(ve.Message, "crypto") {
+		t.Errorf("error message must mention 'sbp' and 'crypto': %s", ve.Message)
+	}
+}
+
+func TestInvoiceDraftNormalizesPaymentMethodToLowerCase(t *testing.T) {
+	pm := PaymentMethod(" CRYPTO ")
+	in := InvoiceDraftInput{
+		ClientID:        1,
+		ProductIDs:      []int64{1},
+		DiscountPercent: 0,
+		Months:          1,
+		Provider:        "platega",
+		PaymentMethod:   &pm,
+	}
+	n := in.normalized()
+	if n.PaymentMethod == nil || *n.PaymentMethod != "crypto" {
+		t.Fatalf("expected normalized payment_method=%q, got %v", "crypto", n.PaymentMethod)
+	}
+}
+
+// --- JSON marshal contract -----------------------------------------------------
+
+func TestInvoiceDraftMarshalPlategaSBP(t *testing.T) {
+	pm := PaymentMethodSBP
+	in := InvoiceDraftInput{
+		ClientID:        1,
+		ProductIDs:      []int64{1},
+		DiscountPercent: 0,
+		Months:          1,
+		Provider:        "platega",
+		PaymentMethod:   &pm,
+	}
+	data, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	got := string(data)
+	if !strings.Contains(got, `"payment_method":"sbp"`) {
+		t.Fatalf("expected payment_method=sbp in JSON: %s", got)
+	}
+}
+
+func TestInvoiceDraftMarshalPlategaCrypto(t *testing.T) {
+	pm := PaymentMethodCrypto
+	in := InvoiceDraftInput{
+		ClientID:        1,
+		ProductIDs:      []int64{1},
+		DiscountPercent: 0,
+		Months:          1,
+		Provider:        "platega",
+		PaymentMethod:   &pm,
+	}
+	data, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	got := string(data)
+	if !strings.Contains(got, `"payment_method":"crypto"`) {
+		t.Fatalf("expected payment_method=crypto in JSON: %s", got)
+	}
+}
+
+func TestInvoiceDraftMarshalNonPlategaOmitsPaymentMethod(t *testing.T) {
+	in := InvoiceDraftInput{
+		ClientID:        1,
+		ProductIDs:      []int64{1},
+		DiscountPercent: 0,
+		Months:          1,
+		Provider:        "yookassa",
+	}
+	data, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	got := string(data)
+	if strings.Contains(got, "payment_method") {
+		t.Fatalf("payment_method must be omitted for nil pointer: %s", got)
 	}
 }

@@ -36,6 +36,35 @@ func (p PaymentProvider) IsValid() bool {
 	return false
 }
 
+// PaymentMethod — способ оплаты внутри провайдера. Сейчас релевантно только
+// для PaymentProviderPlatega: CRM-API маппит "sbp" в Platega paymentMethod=2,
+// "crypto" — в 13. Для остальных провайдеров поле остаётся nil и в JSON не
+// попадает (см. tag omitempty в InvoiceDraftInput.PaymentMethod).
+type PaymentMethod string
+
+const (
+	PaymentMethodSBP    PaymentMethod = "sbp"
+	PaymentMethodCrypto PaymentMethod = "crypto"
+)
+
+// SupportedPaymentMethods — список всех поддерживаемых способов оплаты.
+var SupportedPaymentMethods = []PaymentMethod{
+	PaymentMethodSBP,
+	PaymentMethodCrypto,
+}
+
+// IsValid возвращает true, если значение совпадает с одним из поддерживаемых
+// способов оплаты (case-insensitive, trim).
+func (m PaymentMethod) IsValid() bool {
+	normalized := strings.ToLower(strings.TrimSpace(string(m)))
+	for _, sm := range SupportedPaymentMethods {
+		if normalized == string(sm) {
+			return true
+		}
+	}
+	return false
+}
+
 type PaymentsCalculateInput struct {
 	ProductIDs      []int64 `json:"product_ids"`
 	DiscountPercent int64   `json:"discount_percent"`
@@ -61,11 +90,12 @@ func (in PaymentsCalculateInput) Validate() error {
 }
 
 type InvoiceDraftInput struct {
-	ClientID        int64   `json:"client_id"`
-	ProductIDs      []int64 `json:"product_ids"`
-	DiscountPercent int64   `json:"discount_percent"`
-	Months          int64   `json:"months"`
-	Provider        string  `json:"provider"`
+	ClientID        int64          `json:"client_id"`
+	ProductIDs      []int64        `json:"product_ids"`
+	DiscountPercent int64          `json:"discount_percent"`
+	Months          int64          `json:"months"`
+	Provider        string         `json:"provider"`
+	PaymentMethod   *PaymentMethod `json:"payment_method,omitempty"`
 }
 
 func (in InvoiceDraftInput) Validate() error {
@@ -92,11 +122,18 @@ func (in InvoiceDraftInput) Validate() error {
 			Message: "provider must be one of: yookassa, cryptocloud, heleket, platega",
 		}
 	}
+	if in.PaymentMethod != nil && !in.PaymentMethod.IsValid() {
+		return &ValidationError{Message: "payment_method must be one of: sbp, crypto"}
+	}
 	return nil
 }
 
 func (in InvoiceDraftInput) normalized() InvoiceDraftInput {
 	in.Provider = strings.ToLower(strings.TrimSpace(in.Provider))
+	if in.PaymentMethod != nil {
+		normalized := PaymentMethod(strings.ToLower(strings.TrimSpace(string(*in.PaymentMethod))))
+		in.PaymentMethod = &normalized
+	}
 	return in
 }
 
