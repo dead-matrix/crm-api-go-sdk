@@ -47,6 +47,11 @@ var noCaptionTypeSet = map[string]struct{}{
 // can construct JSON without depending on the public struct having
 // pointer semantics for every field (which is the current shape).
 type rawReplyTemplateItem struct {
+	// ID is sent by the server in read responses (GET full template);
+	// absent on create requests (server assigns). Zero is "unknown",
+	// which `toPublic()` propagates to the public struct as the
+	// `omitempty` int64 zero value.
+	ID              int64   `json:"id"`
 	Position        int     `json:"position"`
 	Type            string  `json:"type"`
 	Caption         *string `json:"caption"`
@@ -63,6 +68,7 @@ type rawReplyTemplateItem struct {
 
 func (r rawReplyTemplateItem) toPublic() ReplyTemplateItem {
 	return ReplyTemplateItem{
+		ID:              r.ID,
 		Position:        r.Position,
 		Type:            r.Type,
 		Caption:         r.Caption,
@@ -373,4 +379,148 @@ func parseOptionalTime(s *string) *time.Time {
 		return nil
 	}
 	return utils.ParseTime(trimmed)
+}
+
+// ───────── Delivery refs (file-id reuse cache) ─────────
+//
+// Two endpoints, both scoped to one template_id:
+//
+//   GET /api/reply-templates/{template_id}/delivery-refs
+//       ?provider=...&providerScope=...
+//   PUT /api/reply-templates/{template_id}/delivery-refs
+//
+// The messenger reads at PrepareSend time, falls back to S3 URLs when
+// a ref is missing, and PUTs back the freshly-extracted Telegram
+// file_ids after a successful dispatch.
+
+// listDeliveryRefsRaw mirrors the server response envelope.
+type listDeliveryRefsRaw struct {
+	Refs []DeliveryRef `json:"refs"`
+}
+
+// upsertDeliveryRefsRaw mirrors the server response envelope.
+type upsertDeliveryRefsRaw struct {
+	Refs []DeliveryRef `json:"refs"`
+}
+
+// ReplyTemplatesDeliveryRefsList returns every delivery ref persisted
+// for the given template under (provider, providerScope). An empty
+// slice (no error) is the normal "first send, nothing cached" state -
+// the messenger uses an empty result to mean "fall back to S3 URL for
+// every item".
+//
+// Validation:
+//   - templateID > 0
+//   - provider non-empty
+//   - providerScope non-empty
+//
+// HTTP mapping:
+//   - 404 → APIError (template not found)
+//   - 422 → ValidationError (unknown provider on server side)
+func (c *Client) ReplyTemplatesDeliveryRefsList(
+	ctx context.Context,
+	templateID int64,
+	provider string,
+	providerScope string,
+) ([]DeliveryRef, error) {
+	if templateID <= 0 {
+		return nil, &ValidationError{Message: "template_id must be a positive integer"}
+	}
+	provider = strings.TrimSpace(provider)
+	providerScope = strings.TrimSpace(providerScope)
+	if provider == "" {
+		return nil, &ValidationError{Message: "provider must not be empty"}
+	}
+	if providerScope == "" {
+		return nil, &ValidationError{Message: "providerScope must not be empty"}
+	}
+
+	query := map[string]string{
+		"provider":      provider,
+		"providerScope": providerScope,
+	}
+	var raw listDeliveryRefsRaw
+	path := fmt.Sprintf("/api/reply-templates/%d/delivery-refs", templateID)
+	if err := c.get(ctx, path, query, true, &raw); err != nil {
+		return nil, err
+	}
+	return raw.Refs, nil
+}
+
+// ReplyTemplatesDeliveryRefsUpsert idempotently writes (or refreshes)
+// a batch of delivery refs for one template. Every entry in `input.Refs`
+// must address an item that belongs to `templateID`; otherwise the
+// server returns 422.
+//
+// Validation (client-side, pre-flight):
+//   - templateID > 0
+//   - provider non-empty (server further restricts to known providers)
+//   - providerScope non-empty
+//   - refs len ∈ [1, 10]
+//   - each ItemID > 0
+//   - each MediaRef non-empty
+//
+// Returns the post-upsert rows in their final shape so the caller can
+// log/diagnose without a second round-trip.
+func (c *Client) ReplyTemplatesDeliveryRefsUpsert(
+	ctx context.Context,
+	templateID int64,
+	input UpsertDeliveryRefsInput,
+) ([]DeliveryRef, error) {
+	if templateID <= 0 {
+		return nil, &ValidationError{Message: "template_id must be a positive integer"}
+	}
+	in := input.normalized()
+	if err := in.validate(); err != nil {
+		return nil, err
+	}
+
+	var raw upsertDeliveryRefsRaw
+	path := fmt.Sprintf("/api/reply-templates/%d/delivery-refs", templateID)
+	if err := c.put(ctx, path, nil, true, in, &raw); err != nil {
+		return nil, err
+	}
+	return raw.Refs, nil
+}
+
+func (in UpsertDeliveryRefsInput) normalized() UpsertDeliveryRefsInput {
+	in.Provider = strings.TrimSpace(in.Provider)
+	in.ProviderScope = strings.TrimSpace(in.ProviderScope)
+	for i := range in.Refs {
+		r := &in.Refs[i]
+		r.MediaRef = strings.TrimSpace(r.MediaRef)
+		if r.MediaUniqueRef != nil {
+			t := strings.TrimSpace(*r.MediaUniqueRef)
+			r.MediaUniqueRef = &t
+		}
+		if r.MediaType != nil {
+			t := strings.TrimSpace(*r.MediaType)
+			r.MediaType = &t
+		}
+	}
+	return in
+}
+
+func (in UpsertDeliveryRefsInput) validate() error {
+	if in.Provider == "" {
+		return &ValidationError{Message: "provider must not be empty"}
+	}
+	if in.ProviderScope == "" {
+		return &ValidationError{Message: "providerScope must not be empty"}
+	}
+	if len(in.Refs) == 0 {
+		return &ValidationError{Message: "refs must contain at least one element"}
+	}
+	if len(in.Refs) > ReplyTemplateAlbumMaxItems {
+		return &ValidationError{Message: fmt.Sprintf("refs must contain at most %d elements", ReplyTemplateAlbumMaxItems)}
+	}
+	for i, r := range in.Refs {
+		if r.ItemID <= 0 {
+			return &ValidationError{Message: fmt.Sprintf("refs[%d].itemId must be a positive integer", i)}
+		}
+		if r.MediaRef == "" {
+			return &ValidationError{Message: fmt.Sprintf("refs[%d].mediaRef must not be empty", i)}
+		}
+	}
+	return nil
 }

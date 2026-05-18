@@ -50,6 +50,13 @@ type ReplyTemplateListItem struct {
 // For Type ∈ {"voice","video_note","sticker"}: Caption must be nil
 // (Telegram strips it).
 type ReplyTemplateItem struct {
+	// ID is the per-row database identifier. Returned by the server
+	// in `GET /reply-templates/{id}`; ignored in create requests
+	// (the server assigns one). Clients that cache derived state
+	// per-item (e.g. messenger's Telegram file_id reuse) MUST key
+	// by this id - `position` alone is fragile under future
+	// reorder operations.
+	ID              int64   `json:"id,omitempty"`
 	Position        int     `json:"position"`
 	Type            string  `json:"type"`
 	Caption         *string `json:"caption,omitempty"`
@@ -62,6 +69,61 @@ type ReplyTemplateItem struct {
 	FileName        *string `json:"fileName,omitempty"`
 	OriginTenantID  *string `json:"originTenantId,omitempty"`
 	OriginMessageID *string `json:"originMessageId,omitempty"`
+}
+
+// ─── Delivery refs (reusable file-id cache) ────────────────────────────
+//
+// `provider`/`provider_scope` pin a Telegram-like ID to a specific
+// bot/account so it doesn't leak across providers or bots.
+// Currently `provider` is always `"telegram"`. `provider_scope` for
+// Telegram is the bot username (file_ids are bot-specific).
+//
+// The cache is a pure accelerator: when the messenger sends a media
+// reply-template item via the URL it persists the resulting Telegram
+// file_id here; subsequent sends to the same provider+scope reuse
+// the file_id instead of re-downloading + re-presigning. Stale refs
+// (Telegram error "wrong file identifier") cause the messenger to
+// fall back to the URL path and upsert a fresh ref.
+
+const (
+	DeliveryProviderTelegram = "telegram"
+)
+
+// DeliveryRef is one persisted reusable handle for one
+// (template_item_id, provider, provider_scope) tuple.
+type DeliveryRef struct {
+	ID             int64   `json:"id"`
+	ItemID         int64   `json:"itemId"`
+	Provider       string  `json:"provider"`
+	ProviderScope  string  `json:"providerScope"`
+	MediaRef       string  `json:"mediaRef"`
+	MediaUniqueRef *string `json:"mediaUniqueRef,omitempty"`
+	MediaType      *string `json:"mediaType,omitempty"`
+	FailCount      int     `json:"failCount"`
+	LastUsedAt     *string `json:"lastUsedAt,omitempty"`
+	CreatedAt      *string `json:"createdAt,omitempty"`
+	UpdatedAt      *string `json:"updatedAt,omitempty"`
+}
+
+// UpsertDeliveryRefInput is one ref entry in the PUT batch.
+type UpsertDeliveryRefInput struct {
+	ItemID         int64   `json:"itemId"`
+	MediaRef       string  `json:"mediaRef"`
+	MediaUniqueRef *string `json:"mediaUniqueRef,omitempty"`
+	MediaType      *string `json:"mediaType,omitempty"`
+}
+
+// UpsertDeliveryRefsInput is the body of
+// PUT /reply-templates/{template_id}/delivery-refs.
+//
+// Server contract: provider non-empty, provider_scope non-empty,
+// refs 1..10 items, every ItemID belongs to the addressed template.
+// Idempotent: upsert keyed by (template_item_id, provider, scope).
+// Successful upsert always resets server-side fail_count to 0.
+type UpsertDeliveryRefsInput struct {
+	Provider      string                   `json:"provider"`
+	ProviderScope string                   `json:"providerScope"`
+	Refs          []UpsertDeliveryRefInput `json:"refs"`
 }
 
 // ReplyTemplateFull is returned by ReplyTemplatesGet. Items are sorted
