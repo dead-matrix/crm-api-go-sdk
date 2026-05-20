@@ -89,24 +89,22 @@ func (c *Client) ChangeDialogStatus(ctx context.Context, userID int64, statusID 
 	}
 
 	var raw struct {
-		Status string `json:"status"`
+		Status *string `json:"status"`
 	}
 
 	if err := c.post(ctx, "/api/dialogs/status", nil, true, body, &raw); err != nil {
 		return nil, err
 	}
 
-	return &ChangeStatusResult{
-		Status: raw.Status,
-	}, nil
+	return &ChangeStatusResult{Status: raw.Status}, nil
 }
 
 // ClearDialogStatus снимает активный статус диалога. POST /api/dialogs/status
-// получает payload с явным status_id=null — это требуется текущей валидацией
-// CRM API: payload без поля status_id отвергается с 422 "Validation error".
-// Сервер удаляет запись DialogStatus для диалога в его текущем департаменте
-// и возвращает status=null, который нормализуется в пустую строку в
-// ChangeStatusResult.Status.
+// получает payload с явным status_id=null — паритет с Python SDK; сервер
+// принимает оба варианта (отсутствие поля и явный null), но единый формат
+// упрощает отладку. Сервер удаляет запись DialogStatus для диалога в его
+// текущем департаменте и возвращает status=null → ChangeStatusResult.Status
+// будет nil.
 func (c *Client) ClearDialogStatus(ctx context.Context, userID int64) (*ChangeStatusResult, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
@@ -125,11 +123,7 @@ func (c *Client) ClearDialogStatus(ctx context.Context, userID int64) (*ChangeSt
 		return nil, err
 	}
 
-	status := ""
-	if raw.Status != nil {
-		status = *raw.Status
-	}
-	return &ChangeStatusResult{Status: status}, nil
+	return &ChangeStatusResult{Status: raw.Status}, nil
 }
 
 func (c *Client) TransferDialog(ctx context.Context, userID int64, toDepartment string) (*TransferDialogResult, error) {
@@ -184,8 +178,8 @@ func (c *Client) SearchDialogs(ctx context.Context, department string, q string,
 			UserID                int64   `json:"user_id"`
 			FullName              *string `json:"full_name"`
 			HasActiveSubscription bool    `json:"has_active_subscription"`
-			Status                string  `json:"status"`
-			StatusColor           string  `json:"status_color"`
+			Status                *string `json:"status"`
+			StatusColor           *string `json:"status_color"`
 		} `json:"dialogs"`
 		Limit  int64 `json:"limit"`
 		Offset int64 `json:"offset"`

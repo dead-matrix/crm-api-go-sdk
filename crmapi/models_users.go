@@ -24,10 +24,14 @@ type GetUserResult struct {
 // If a registration for (UserID, BotID) already existed, Created is false and
 // the rest of the fields contain the existing record. Otherwise Created is
 // true and the fields describe the newly created record.
+//
+// FullName is nullable: on the idempotent path the server returns
+// `user.full_name` directly from the database row, which is technically a
+// nullable column. New registrations always have a non-nil FullName.
 type CreateUserResult struct {
 	Created  bool       `json:"created"`
 	UserID   int64      `json:"user_id"`
-	FullName string     `json:"full_name"`
+	FullName *string    `json:"full_name,omitempty"`
 	Username *string    `json:"username,omitempty"`
 	BotID    int64      `json:"bot_id"`
 	Refer    *string    `json:"refer,omitempty"`
@@ -35,9 +39,12 @@ type CreateUserResult struct {
 }
 
 // ListUserItem is one element of GET /api/users?bot_id=... response.
+//
+// FullName is nullable: the server returns `user.full_name` directly from
+// the database row, which is technically a nullable column.
 type ListUserItem struct {
 	UserID     int64      `json:"user_id"`
-	FullName   string     `json:"full_name"`
+	FullName   *string    `json:"full_name,omitempty"`
 	Username   *string    `json:"username,omitempty"`
 	DateReg    *time.Time `json:"date_reg,omitempty"`
 	Refer      *string    `json:"refer,omitempty"`

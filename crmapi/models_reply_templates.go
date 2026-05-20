@@ -24,17 +24,22 @@ type ReplyTemplatePreview struct {
 // ReplyTemplateListItem is the per-row payload returned by
 // ReplyTemplatesList. It deliberately omits items[] to keep the list
 // endpoint cheap — fetch ReplyTemplatesGet for the full content.
+//
+// JSON tags are intentionally `omitempty` for the three timestamp
+// pointers — when nil, callers re-marshalling this struct should not
+// emit `null`, matching the CRM contract where these fields default
+// to absent for never-used templates.
 type ReplyTemplateListItem struct {
-	ID         int64                 `json:"id"`
-	PublicID   string                `json:"publicId"`
-	Title      string                `json:"title"`
-	Kind       string                `json:"kind"`
-	Creator    ReplyTemplateCreator  `json:"creator"`
-	Preview    ReplyTemplatePreview  `json:"preview"`
-	UsageCount int64                 `json:"usageCount"`
-	LastUsedAt *time.Time
-	CreatedAt  *time.Time
-	UpdatedAt  *time.Time
+	ID         int64                `json:"id"`
+	PublicID   string               `json:"publicId"`
+	Title      string               `json:"title"`
+	Kind       string               `json:"kind"`
+	Creator    ReplyTemplateCreator `json:"creator"`
+	Preview    ReplyTemplatePreview `json:"preview"`
+	UsageCount int64                `json:"usageCount"`
+	LastUsedAt *time.Time           `json:"lastUsedAt,omitempty"`
+	CreatedAt  *time.Time           `json:"createdAt,omitempty"`
+	UpdatedAt  *time.Time           `json:"updatedAt,omitempty"`
 }
 
 // ReplyTemplateItem is one element of a template (a single piece of
@@ -91,18 +96,22 @@ const (
 
 // DeliveryRef is one persisted reusable handle for one
 // (template_item_id, provider, provider_scope) tuple.
+//
+// Timestamps are parsed to *time.Time on the SDK side для паритета с
+// Python SDK (`Optional[datetime]`). Сырой ISO формат CRM хранится в
+// частном raw struct внутри client/reply_templates.go.
 type DeliveryRef struct {
-	ID             int64   `json:"id"`
-	ItemID         int64   `json:"itemId"`
-	Provider       string  `json:"provider"`
-	ProviderScope  string  `json:"providerScope"`
-	MediaRef       string  `json:"mediaRef"`
-	MediaUniqueRef *string `json:"mediaUniqueRef,omitempty"`
-	MediaType      *string `json:"mediaType,omitempty"`
-	FailCount      int     `json:"failCount"`
-	LastUsedAt     *string `json:"lastUsedAt,omitempty"`
-	CreatedAt      *string `json:"createdAt,omitempty"`
-	UpdatedAt      *string `json:"updatedAt,omitempty"`
+	ID             int64      `json:"id"`
+	ItemID         int64      `json:"itemId"`
+	Provider       string     `json:"provider"`
+	ProviderScope  string     `json:"providerScope"`
+	MediaRef       string     `json:"mediaRef"`
+	MediaUniqueRef *string    `json:"mediaUniqueRef,omitempty"`
+	MediaType      *string    `json:"mediaType,omitempty"`
+	FailCount      int        `json:"failCount"`
+	LastUsedAt     *time.Time `json:"lastUsedAt,omitempty"`
+	CreatedAt      *time.Time `json:"createdAt,omitempty"`
+	UpdatedAt      *time.Time `json:"updatedAt,omitempty"`
 }
 
 // UpsertDeliveryRefInput is one ref entry in the PUT batch.
@@ -129,14 +138,14 @@ type UpsertDeliveryRefsInput struct {
 // ReplyTemplateFull is returned by ReplyTemplatesGet. Items are sorted
 // by Position ascending.
 type ReplyTemplateFull struct {
-	ID        int64                 `json:"id"`
-	PublicID  string                `json:"publicId"`
-	Title     string                `json:"title"`
-	Kind      string                `json:"kind"`
-	Creator   ReplyTemplateCreator  `json:"creator"`
-	Items     []ReplyTemplateItem   `json:"items"`
-	CreatedAt *time.Time
-	UpdatedAt *time.Time
+	ID        int64                `json:"id"`
+	PublicID  string               `json:"publicId"`
+	Title     string               `json:"title"`
+	Kind      string               `json:"kind"`
+	Creator   ReplyTemplateCreator `json:"creator"`
+	Items     []ReplyTemplateItem  `json:"items"`
+	CreatedAt *time.Time           `json:"createdAt,omitempty"`
+	UpdatedAt *time.Time           `json:"updatedAt,omitempty"`
 }
 
 // CreateReplyTemplateInput is the body of ReplyTemplatesCreate. Server-

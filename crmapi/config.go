@@ -17,7 +17,11 @@ const (
 	defaultUserAgent         = "crm-api-go-sdk"
 )
 
+// defaultRetryStatusCodes lists HTTP status codes that are retried by default
+// for idempotent methods. 429 included to align with the Python SDK; both SDKs
+// must back off on rate limits the same way.
 var defaultRetryStatusCodes = []int{
+	http.StatusTooManyRequests,
 	http.StatusBadGateway,
 	http.StatusServiceUnavailable,
 	http.StatusGatewayTimeout,

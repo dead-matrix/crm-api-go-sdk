@@ -23,7 +23,7 @@ func (c *Client) CreateUser(ctx context.Context, input CreateUserInput) (*Create
 	var raw struct {
 		Created  bool    `json:"created"`
 		UserID   int64   `json:"user_id"`
-		FullName string  `json:"full_name"`
+		FullName *string `json:"full_name"`
 		Username *string `json:"username"`
 		BotID    int64   `json:"bot_id"`
 		Refer    *string `json:"refer"`
@@ -81,7 +81,7 @@ func (c *Client) ListUsers(ctx context.Context, botID int64, limit int64, offset
 		Count  int64 `json:"count"`
 		Items  []struct {
 			UserID     int64   `json:"user_id"`
-			FullName   string  `json:"full_name"`
+			FullName   *string `json:"full_name"`
 			Username   *string `json:"username"`
 			DateReg    *string `json:"date_reg"`
 			Refer      *string `json:"refer"`

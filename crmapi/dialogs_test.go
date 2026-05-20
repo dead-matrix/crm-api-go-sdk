@@ -37,17 +37,20 @@ func TestClient_ChangeDialogStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ChangeDialogStatus error: %v", err)
 	}
-	if res.Status != "In progress" {
-		t.Fatalf("status = %q, want %q", res.Status, "In progress")
+	if res.Status == nil {
+		t.Fatalf("status = nil, want %q", "In progress")
+	}
+	if *res.Status != "In progress" {
+		t.Fatalf("status = %q, want %q", *res.Status, "In progress")
 	}
 	if captured["user_id"] != float64(100) || captured["status_id"] != float64(20) {
 		t.Fatalf("unexpected request body: %+v", captured)
 	}
 }
 
-// ClearDialogStatus отправляет payload с status_id=null (явно, не отсутствием
-// поля — иначе CRM-API возвращает 422) и нормализует ответ status=null в
-// пустую строку.
+// ClearDialogStatus отправляет payload с status_id=null (явно — паритет с
+// Python SDK), и сохраняет распаковку ответа status=null как
+// ChangeStatusResult.Status == nil (паритет с Python: str | None).
 func TestClient_ClearDialogStatus(t *testing.T) {
 	var captured map[string]any
 
@@ -71,8 +74,8 @@ func TestClient_ClearDialogStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ClearDialogStatus error: %v", err)
 	}
-	if res.Status != "" {
-		t.Fatalf("status = %q, want empty (cleared)", res.Status)
+	if res.Status != nil {
+		t.Fatalf("status = %q, want nil (cleared)", *res.Status)
 	}
 
 	if v, ok := captured["status_id"]; !ok || v != nil {
@@ -80,6 +83,74 @@ func TestClient_ClearDialogStatus(t *testing.T) {
 	}
 	if captured["user_id"] != float64(42) {
 		t.Fatalf("user_id mismatch: %+v", captured)
+	}
+}
+
+// TestClient_SearchDialogs_NullStatusPreserved: сервер может вернуть
+// status/status_color=null (диалог без статуса в департаменте без
+// default_status). SDK сохраняет nil; не превращает в "".
+func TestClient_SearchDialogs_NullStatusPreserved(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/staff/123/auth":
+			expiresAt := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+			fmt.Fprintf(w, `{"status":"success","data":{"token":"jwt-1","expires_at":"%s"}}`, expiresAt)
+		case "/api/dialogs/sales/search":
+			_, _ = w.Write([]byte(`{"status":"success","data":{
+				"dialogs":[
+					{"user_id":1,"full_name":"User","has_active_subscription":false,"status":null,"status_color":null}
+				],
+				"limit":50,"offset":0
+			}}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := mustNewClient(t, server.URL, server.Client())
+	res, err := client.SearchDialogs(context.Background(), "sales", "user", 0)
+	if err != nil {
+		t.Fatalf("SearchDialogs error: %v", err)
+	}
+	if len(res.Dialogs) != 1 {
+		t.Fatalf("expected 1 dialog, got %d", len(res.Dialogs))
+	}
+	if res.Dialogs[0].Status != nil {
+		t.Fatalf("Status = %q, want nil", *res.Dialogs[0].Status)
+	}
+	if res.Dialogs[0].StatusColor != nil {
+		t.Fatalf("StatusColor = %q, want nil", *res.Dialogs[0].StatusColor)
+	}
+}
+
+// TestClient_ChangeDialogStatus_NullDistinct гарантирует, что nil status
+// (статус снят) и пустая строка остаются разными значениями — это и есть
+// цель перехода ChangeStatusResult.Status на *string.
+func TestClient_ChangeDialogStatus_NullDistinct(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/staff/123/auth":
+			expiresAt := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+			fmt.Fprintf(w, `{"status":"success","data":{"token":"jwt-1","expires_at":"%s"}}`, expiresAt)
+		case "/api/dialogs/status":
+			_, _ = w.Write([]byte(`{"status":"success","data":{"status":""}}`))
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := mustNewClient(t, server.URL, server.Client())
+	res, err := client.ChangeDialogStatus(context.Background(), 1, 1)
+	if err != nil {
+		t.Fatalf("ChangeDialogStatus error: %v", err)
+	}
+	if res.Status == nil {
+		t.Fatalf("status = nil, expected empty-string pointer (distinct from cleared)")
+	}
+	if *res.Status != "" {
+		t.Fatalf("status = %q, expected empty string", *res.Status)
 	}
 }
 

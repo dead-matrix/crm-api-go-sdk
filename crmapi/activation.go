@@ -30,7 +30,7 @@ func (c *Client) ActivationRedeem(ctx context.Context, input ActivationRedeemInp
 		Access           any     `json:"access"`
 		AccessEnd        *string `json:"access_end"`
 		ActivationCodeID int64   `json:"activation_code_id"`
-		PaymentID        int64   `json:"payment_id"`
+		PaymentID        *int64  `json:"payment_id"`
 	}
 
 	if err := c.post(ctx, "/api/activation/redeem", nil, true, input, &raw); err != nil {

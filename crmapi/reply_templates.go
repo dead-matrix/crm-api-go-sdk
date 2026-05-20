@@ -393,14 +393,47 @@ func parseOptionalTime(s *string) *time.Time {
 // a ref is missing, and PUTs back the freshly-extracted Telegram
 // file_ids after a successful dispatch.
 
+// rawDeliveryRef хранит ISO timestamps как сырые строки до парсинга в
+// public DeliveryRef. Нужен потому что CRM возвращает даты в ISO 8601, а
+// public-API SDK выдаёт *time.Time (паритет с Python Optional[datetime]).
+type rawDeliveryRef struct {
+	ID             int64   `json:"id"`
+	ItemID         int64   `json:"itemId"`
+	Provider       string  `json:"provider"`
+	ProviderScope  string  `json:"providerScope"`
+	MediaRef       string  `json:"mediaRef"`
+	MediaUniqueRef *string `json:"mediaUniqueRef"`
+	MediaType      *string `json:"mediaType"`
+	FailCount      int     `json:"failCount"`
+	LastUsedAt     *string `json:"lastUsedAt"`
+	CreatedAt      *string `json:"createdAt"`
+	UpdatedAt      *string `json:"updatedAt"`
+}
+
+func (r rawDeliveryRef) toPublic() DeliveryRef {
+	return DeliveryRef{
+		ID:             r.ID,
+		ItemID:         r.ItemID,
+		Provider:       r.Provider,
+		ProviderScope:  r.ProviderScope,
+		MediaRef:       r.MediaRef,
+		MediaUniqueRef: r.MediaUniqueRef,
+		MediaType:      r.MediaType,
+		FailCount:      r.FailCount,
+		LastUsedAt:     parseOptionalTime(r.LastUsedAt),
+		CreatedAt:      parseOptionalTime(r.CreatedAt),
+		UpdatedAt:      parseOptionalTime(r.UpdatedAt),
+	}
+}
+
 // listDeliveryRefsRaw mirrors the server response envelope.
 type listDeliveryRefsRaw struct {
-	Refs []DeliveryRef `json:"refs"`
+	Refs []rawDeliveryRef `json:"refs"`
 }
 
 // upsertDeliveryRefsRaw mirrors the server response envelope.
 type upsertDeliveryRefsRaw struct {
-	Refs []DeliveryRef `json:"refs"`
+	Refs []rawDeliveryRef `json:"refs"`
 }
 
 // ReplyTemplatesDeliveryRefsList returns every delivery ref persisted
@@ -444,7 +477,11 @@ func (c *Client) ReplyTemplatesDeliveryRefsList(
 	if err := c.get(ctx, path, query, true, &raw); err != nil {
 		return nil, err
 	}
-	return raw.Refs, nil
+	refs := make([]DeliveryRef, 0, len(raw.Refs))
+	for _, r := range raw.Refs {
+		refs = append(refs, r.toPublic())
+	}
+	return refs, nil
 }
 
 // ReplyTemplatesDeliveryRefsUpsert idempotently writes (or refreshes)
@@ -480,7 +517,11 @@ func (c *Client) ReplyTemplatesDeliveryRefsUpsert(
 	if err := c.put(ctx, path, nil, true, in, &raw); err != nil {
 		return nil, err
 	}
-	return raw.Refs, nil
+	refs := make([]DeliveryRef, 0, len(raw.Refs))
+	for _, r := range raw.Refs {
+		refs = append(refs, r.toPublic())
+	}
+	return refs, nil
 }
 
 func (in UpsertDeliveryRefsInput) normalized() UpsertDeliveryRefsInput {

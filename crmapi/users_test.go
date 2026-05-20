@@ -60,8 +60,8 @@ func TestCreateUserFirstTimeReturnsCreatedTrue(t *testing.T) {
 	if res.UserID != 999 {
 		t.Fatalf("UserID = %d, want 999", res.UserID)
 	}
-	if res.FullName != "Charlie" {
-		t.Fatalf("FullName = %q, want Charlie", res.FullName)
+	if res.FullName == nil || *res.FullName != "Charlie" {
+		t.Fatalf("FullName = %v, want pointer to Charlie", res.FullName)
 	}
 	if res.BotID != 1 {
 		t.Fatalf("BotID = %d, want 1", res.BotID)
@@ -111,8 +111,8 @@ func TestCreateUserIdempotentReturnsExistingRecord(t *testing.T) {
 	if res.Created {
 		t.Fatalf("Created = true, want false (idempotent path)")
 	}
-	if res.FullName != "OldName" {
-		t.Fatalf("FullName = %q, want OldName (server returns existing, not payload)", res.FullName)
+	if res.FullName == nil || *res.FullName != "OldName" {
+		t.Fatalf("FullName = %v, want pointer to OldName (server returns existing, not payload)", res.FullName)
 	}
 	if res.Refer == nil || *res.Refer != "oldref" {
 		t.Fatalf("Refer = %v, want pointer to \"oldref\"", res.Refer)
@@ -186,7 +186,7 @@ func TestListUsersReturnsPaginatedItems(t *testing.T) {
 	}
 
 	alice, bob := res.Items[0], res.Items[1]
-	if alice.UserID != 101 || alice.FullName != "Alice" || alice.Restricted {
+	if alice.UserID != 101 || alice.FullName == nil || *alice.FullName != "Alice" || alice.Restricted {
 		t.Fatalf("alice = %+v", alice)
 	}
 	if alice.Username == nil || *alice.Username != "alice" {
@@ -196,7 +196,7 @@ func TestListUsersReturnsPaginatedItems(t *testing.T) {
 		t.Fatalf("alice.DateReg should be parsed")
 	}
 
-	if bob.UserID != 102 || bob.Username != nil || !bob.Restricted {
+	if bob.UserID != 102 || bob.FullName == nil || *bob.FullName != "Bob" || bob.Username != nil || !bob.Restricted {
 		t.Fatalf("bob = %+v (Username=%v)", bob, bob.Username)
 	}
 	if bob.Refer == nil || *bob.Refer != "ref-x" {
@@ -230,6 +230,81 @@ func TestListUsersValidationFailsWithoutHTTP(t *testing.T) {
 				t.Fatalf("expected ValidationError, got %v", err)
 			}
 		})
+	}
+}
+
+// TestCreateUserIdempotentNullFullName: на идемпотентном пути сервер может
+// вернуть full_name=null (поле в БД nullable). После перехода
+// CreateUserResult.FullName на *string SDK должен сохранить nil, а не
+// превратить его в "". Паритет с Python str | None.
+func TestCreateUserIdempotentNullFullName(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/staff/123/auth":
+			fmt.Fprint(w, `{"status":"success","data":{"token":"jwt-1","expires_at":"2030-01-01T00:00:00Z"}}`)
+		case "/api/users":
+			fmt.Fprint(w, `{"status":"success","data":{
+				"created":false,
+				"user_id":7,
+				"full_name":null,
+				"username":null,
+				"bot_id":1,
+				"refer":null,
+				"date_reg":"2024-10-01T00:00:00Z"
+			}}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := mustNewClient(t, server.URL, server.Client())
+	res, err := client.CreateUser(context.Background(), CreateUserInput{
+		UserID: 7, FullName: "ignored", BotID: 1,
+	})
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+	if res.Created {
+		t.Fatalf("Created = true, want false")
+	}
+	if res.FullName != nil {
+		t.Fatalf("FullName = %q, want nil (server returned null)", *res.FullName)
+	}
+	if res.Username != nil {
+		t.Fatalf("Username = %q, want nil", *res.Username)
+	}
+}
+
+// TestListUsersNullFullName: full_name=null в items должен остаться nil.
+func TestListUsersNullFullName(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/staff/123/auth":
+			fmt.Fprint(w, `{"status":"success","data":{"token":"jwt-1","expires_at":"2030-01-01T00:00:00Z"}}`)
+		case "/api/users":
+			fmt.Fprint(w, `{"status":"success","data":{
+				"bot_id":1,"limit":100,"offset":0,"count":1,
+				"items":[
+					{"user_id":7,"full_name":null,"username":null,"date_reg":null,"refer":null,"restricted":false}
+				]
+			}}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := mustNewClient(t, server.URL, server.Client())
+	res, err := client.ListUsers(context.Background(), 1, 100, 0)
+	if err != nil {
+		t.Fatalf("ListUsers() error = %v", err)
+	}
+	if len(res.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(res.Items))
+	}
+	if res.Items[0].FullName != nil {
+		t.Fatalf("FullName = %q, want nil (server returned null)", *res.Items[0].FullName)
 	}
 }
 

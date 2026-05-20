@@ -152,6 +152,30 @@ RUN_REAL_API_TESTS=1 go test ./crmapi -run TestRealAPI_Smoke -v
 - `.env` с секретами должен оставаться локальным и не коммититься
 - в репозитории держи только `.env.example`
 
+## Migration notes (Unreleased)
+
+См. `docs/SDK_PARITY.md` для полного списка изменений и обоснований.
+Ключевые BREAKING-изменения по сравнению с предыдущей версией модуля:
+
+- Ряд скалярных полей моделей ответа стал указательным (nullable), чтобы
+  сохранить серверный `null` и не превращать его в zero-value:
+  - `ChangeStatusResult.Status: string → *string`
+  - `CreateUserResult.FullName: string → *string`
+  - `ListUserItem.FullName: string → *string`
+  - `DialogSearchItem.Status` / `StatusColor: string → *string`
+  - `ActivationRedeemResult.PaymentID: int64 → *int64`
+- `DeliveryRef.LastUsedAt` / `CreatedAt` / `UpdatedAt`:
+  `*string → *time.Time` — SDK теперь парсит ISO 8601 в `time.Time` сам.
+- `ReplyTemplateListItem` / `ReplyTemplateFull` получили `json`-теги
+  `lastUsedAt,omitempty` / `createdAt,omitempty` / `updatedAt,omitempty` —
+  re-marshal публичных структур теперь даёт camelCase, паритетный с
+  серверным форматом.
+- Default `RetryStatusCodes` дополнен `429` — единая retry-policy с Python SDK.
+
+Миграция: добавить nil-check перед разыменованием указателей.
+Компилятор Go подсветит все места, где старый код полагался на zero-value
+этих полей.
+
 ## Лицензия
 
 Proprietary.

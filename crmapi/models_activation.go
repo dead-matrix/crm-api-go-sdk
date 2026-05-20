@@ -54,5 +54,11 @@ type ActivationRedeemResult struct {
 	Access           any        `json:"access,omitempty"`
 	AccessEnd        *time.Time `json:"access_end,omitempty"`
 	ActivationCodeID int64      `json:"activation_code_id,omitempty"`
-	PaymentID        int64      `json:"payment_id,omitempty"`
+
+	// PaymentID — id платежа, к которому был привязан активированный код.
+	// Указатель потому что сервер `app/routers/activation.py:176` явно
+	// возвращает null, если код не был привязан к платежу (например,
+	// технический код, выписанный вручную). При int64 null декодировался
+	// бы в 0, что неотличимо от валидного payment_id.
+	PaymentID *int64 `json:"payment_id,omitempty"`
 }
