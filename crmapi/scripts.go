@@ -71,6 +71,7 @@ func (c *Client) ScriptsTools(ctx context.Context, options []int64, botID int64)
 		Text  string `json:"text"`
 		Media []struct {
 			VideoURL string `json:"video_url"`
+			Thumb    string `json:"thumb"`
 			FileID   string `json:"file_id"`
 		} `json:"media"`
 	}
@@ -83,6 +84,7 @@ func (c *Client) ScriptsTools(ctx context.Context, options []int64, botID int64)
 	for _, item := range raw.Media {
 		media = append(media, ToolsMediaItem{
 			VideoURL: item.VideoURL,
+			Thumb:    item.Thumb,
 			FileID:   item.FileID,
 		})
 	}

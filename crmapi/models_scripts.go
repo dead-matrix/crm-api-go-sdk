@@ -12,6 +12,7 @@ type PriceMediaItem struct {
 
 type ToolsMediaItem struct {
 	VideoURL string `json:"video_url"`
+	Thumb    string `json:"thumb"`
 	FileID   string `json:"file_id"`
 }
 
