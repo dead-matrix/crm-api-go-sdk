@@ -7,7 +7,7 @@
 - Go SDK — пакет `crmapi` (модуль `github.com/dead-matrix/crm-api-go-sdk`).
 - Сервер — CRM-API на FastAPI, маршруты под префиксом `/api`.
 
-**Дата актуализации:** 2026-05-20.
+**Дата актуализации:** 2026-06-01.
 
 ## Как читать этот документ
 
@@ -146,6 +146,7 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 | Endpoint | Python | Go | Request | Response |
 |---|---|---|---|---|
 | `GET /staff` | `get_staff()` | `GetStaff(ctx)` | — | `StaffInfo { name?, role?, is_active, access }` |
+| `GET /staff/list` | `list_staff()` | `ListStaff(ctx)` | — | `[]StaffListItem { user_id, name, role }` (только user_id > 1000) |
 
 ### subscriptions
 | Endpoint | Python | Go | Request | Response |

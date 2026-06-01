@@ -21,3 +21,29 @@ func (c *Client) GetStaff(ctx context.Context) (*StaffInfo, error) {
 		Access:   raw.Access,
 	}, nil
 }
+
+// ListStaff — короткая инфа обо всех сотрудниках с user_id > 1000
+// (GET /api/staff/list). user_id <= 1000 — внутренние/системные сотрудники,
+// сервер их не возвращает.
+func (c *Client) ListStaff(ctx context.Context) ([]StaffListItem, error) {
+	var raw []struct {
+		UserID int64  `json:"user_id"`
+		Name   string `json:"name"`
+		Role   string `json:"role"`
+	}
+
+	if err := c.get(ctx, "/api/staff/list", nil, true, &raw); err != nil {
+		return nil, err
+	}
+
+	items := make([]StaffListItem, 0, len(raw))
+	for _, s := range raw {
+		items = append(items, StaffListItem{
+			UserID: s.UserID,
+			Name:   s.Name,
+			Role:   s.Role,
+		})
+	}
+
+	return items, nil
+}
