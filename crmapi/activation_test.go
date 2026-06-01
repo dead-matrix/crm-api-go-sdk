@@ -65,6 +65,7 @@ func TestActivationRedeem_NonNullPaymentID(t *testing.T) {
 				"action":"add",
 				"access":null,
 				"access_end":"2030-01-01T00:00:00Z",
+				"quantity":3,
 				"activation_code_id":7,
 				"payment_id":12345
 			}}`)
@@ -83,5 +84,8 @@ func TestActivationRedeem_NonNullPaymentID(t *testing.T) {
 	}
 	if res.PaymentID == nil || *res.PaymentID != 12345 {
 		t.Fatalf("PaymentID = %v, want pointer to 12345", res.PaymentID)
+	}
+	if res.Quantity != 3 {
+		t.Fatalf("Quantity = %d, want 3", res.Quantity)
 	}
 }

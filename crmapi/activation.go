@@ -29,6 +29,7 @@ func (c *Client) ActivationRedeem(ctx context.Context, input ActivationRedeemInp
 		Action           string  `json:"action"`
 		Access           any     `json:"access"`
 		AccessEnd        *string `json:"access_end"`
+		Quantity         int64   `json:"quantity"`
 		ActivationCodeID int64   `json:"activation_code_id"`
 		PaymentID        *int64  `json:"payment_id"`
 	}
@@ -56,6 +57,7 @@ func (c *Client) ActivationRedeem(ctx context.Context, input ActivationRedeemInp
 		Action:           raw.Action,
 		Access:           raw.Access,
 		AccessEnd:        accessEnd,
+		Quantity:         raw.Quantity,
 		ActivationCodeID: raw.ActivationCodeID,
 		PaymentID:        raw.PaymentID,
 	}, nil

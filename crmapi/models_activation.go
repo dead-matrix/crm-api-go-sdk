@@ -53,6 +53,8 @@ type ActivationRedeemResult struct {
 	Action           string     `json:"action,omitempty"` // "add" | "extend"
 	Access           any        `json:"access,omitempty"`
 	AccessEnd        *time.Time `json:"access_end,omitempty"`
+	// Quantity — кол-во оплаченных месяцев; срок = quantity*30 дней.
+	Quantity         int64      `json:"quantity,omitempty"`
 	ActivationCodeID int64      `json:"activation_code_id,omitempty"`
 
 	// PaymentID — id платежа, к которому был привязан активированный код.
