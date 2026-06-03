@@ -15,9 +15,12 @@ import (
 // wrong_recipient) are returned as a Result with Success=false and
 // ErrorCode populated; transport errors propagate as Go errors.
 //
-// The CRM endpoint is idempotent on the activation_code state - a
-// repeated call after a successful redeem returns Success=false with
-// ErrorCode="already_used".
+// The CRM endpoint is idempotent for at-least-once delivery: a repeated
+// redeem of an already-consumed code BY THE SAME RECIPIENT returns
+// Success=true with the originally granted access and IdempotentReplay=true,
+// so SDK retries / repeat clicks don't lose access. A used code with no
+// recoverable grant (or a different recipient) still yields the relevant
+// business error.
 func (c *Client) ActivationRedeem(ctx context.Context, input ActivationRedeemInput) (*ActivationRedeemResult, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
@@ -32,6 +35,7 @@ func (c *Client) ActivationRedeem(ctx context.Context, input ActivationRedeemInp
 		Quantity         int64   `json:"quantity"`
 		ActivationCodeID int64   `json:"activation_code_id"`
 		PaymentID        *int64  `json:"payment_id"`
+		IdempotentReplay bool    `json:"idempotent_replay"`
 	}
 
 	if err := c.post(ctx, "/api/activation/redeem", nil, true, input, &raw); err != nil {
@@ -60,5 +64,6 @@ func (c *Client) ActivationRedeem(ctx context.Context, input ActivationRedeemInp
 		Quantity:         raw.Quantity,
 		ActivationCodeID: raw.ActivationCodeID,
 		PaymentID:        raw.PaymentID,
+		IdempotentReplay: raw.IdempotentReplay,
 	}, nil
 }

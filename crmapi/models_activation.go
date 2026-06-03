@@ -63,4 +63,11 @@ type ActivationRedeemResult struct {
 	// технический код, выписанный вручную). При int64 null декодировался
 	// бы в 0, что неотличимо от валидного payment_id.
 	PaymentID *int64 `json:"payment_id,omitempty"`
+
+	// IdempotentReplay=true means this redeem was a replay of an
+	// already-consumed code by the same recipient (SDK retry / repeat
+	// click): CRM returned the originally granted access instead of 409
+	// 'already_used', so at-least-once retries don't lose access. Absent
+	// (false) on a fresh redeem.
+	IdempotentReplay bool `json:"idempotent_replay,omitempty"`
 }
