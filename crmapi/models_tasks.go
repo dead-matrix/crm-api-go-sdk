@@ -3,6 +3,7 @@ package crmapi
 type TaskListItem struct {
 	ID   int64  `json:"id"`
 	Text string `json:"text"`
+	Hide bool   `json:"hide"`
 }
 
 type TaskInfoResult struct {

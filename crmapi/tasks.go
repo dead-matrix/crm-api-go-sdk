@@ -86,6 +86,7 @@ func (c *Client) TasksList(ctx context.Context, userID int64, botID int64, taskT
 	var raw []struct {
 		ID   int64  `json:"id"`
 		Text string `json:"text"`
+		Hide bool   `json:"hide"`
 	}
 
 	if err := c.get(ctx, "/api/tasks/list", query, true, &raw); err != nil {
@@ -97,6 +98,7 @@ func (c *Client) TasksList(ctx context.Context, userID int64, botID int64, taskT
 		items = append(items, TaskListItem{
 			ID:   i.ID,
 			Text: i.Text,
+			Hide: i.Hide,
 		})
 	}
 
