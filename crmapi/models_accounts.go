@@ -23,6 +23,13 @@ type AccountItem struct {
 	Tagged      DayTotal `json:"tagged"`
 	Views       DayTotal `json:"views"`
 	Reactions   DayTotal `json:"reactions"`
+	// FirstLoad — дата первой загрузки аккаунта. CRM хранит наивный datetime
+	// (без таймзоны) и отдаёт ISO-строку — поэтому НЕ time.Time (его JSON-
+	// анмаршал требует RFC3339 с зоной и упал бы на "2026-05-01T12:30:00").
+	FirstLoad *string `json:"first_load,omitempty"`
+	// Removed — аккаунт удалён. Заполняется только при include_removed=true
+	// (без него CRM такие строки не отдаёт вовсе).
+	Removed bool `json:"removed"`
 }
 
 type ProfileStatistics struct {

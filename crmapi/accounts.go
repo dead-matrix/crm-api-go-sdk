@@ -5,7 +5,10 @@ import (
 	"fmt"
 )
 
-func (c *Client) AccountsList(ctx context.Context, userID int64) ([]AccountItem, error) {
+// AccountsList возвращает аккаунты пользователя. includeRemoved=true просит
+// CRM отдать и удалённые строки (поле Removed=true у них); false сохраняет
+// прежнее поведение — только живые аккаунты.
+func (c *Client) AccountsList(ctx context.Context, userID int64, includeRemoved bool) ([]AccountItem, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
 	}
@@ -44,10 +47,15 @@ func (c *Client) AccountsList(ctx context.Context, userID int64) ([]AccountItem,
 			Day   int64 `json:"day"`
 			Total int64 `json:"total"`
 		} `json:"reactions"`
+		FirstLoad *string `json:"first_load"`
+		Removed   bool    `json:"removed"`
 	}
 
 	query := map[string]string{
 		"user_id": fmt.Sprintf("%d", userID),
+	}
+	if includeRemoved {
+		query["include_removed"] = "true"
 	}
 
 	if err := c.get(ctx, "/api/accounts/list", query, true, &raw); err != nil {
@@ -90,6 +98,8 @@ func (c *Client) AccountsList(ctx context.Context, userID int64) ([]AccountItem,
 				Day:   a.Reactions.Day,
 				Total: a.Reactions.Total,
 			},
+			FirstLoad: a.FirstLoad,
+			Removed:   a.Removed,
 		})
 	}
 

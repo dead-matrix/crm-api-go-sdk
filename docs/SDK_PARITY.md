@@ -54,7 +54,7 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 ### accounts
 | Endpoint | Python | Go | Request | Response |
 |---|---|---|---|---|
-| `GET /accounts/list?user_id=` | `accounts_list(user_id)` | `AccountsList(ctx, userID)` | — | `[]AccountItem` (`DayTotal` вложенный) |
+| `GET /accounts/list?user_id=&include_removed=` | `accounts_list(user_id, include_removed)` | `AccountsList(ctx, userID, includeRemoved)` | — | `[]AccountItem` (`DayTotal` вложенный; `first_load` ISO-строка, `removed`) |
 
 ### activation
 | Endpoint | Python | Go | Request | Response |
