@@ -40,8 +40,9 @@ func (p PaymentProvider) IsValid() bool {
 // для PaymentProviderPlatega: CRM-API маппит "sbp" в Platega paymentMethod=2,
 // "crypto" — в 13, "international" — в 12. Для остальных провайдеров поле
 // остаётся nil и в JSON не попадает (см. tag omitempty в
-// InvoiceDraftInput.PaymentMethod). USD-методы crypto/international
-// выставляются в долларах, sbp — в рублях.
+// InvoiceDraftInput.PaymentMethod). crypto выставляется в долларах; sbp и
+// international — в рублях (Platega для метода 12 принимает только EUR/RUB
+// и сама конвертирует в валюту плательщика).
 type PaymentMethod string
 
 const (
