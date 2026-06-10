@@ -38,19 +38,23 @@ func (p PaymentProvider) IsValid() bool {
 
 // PaymentMethod — способ оплаты внутри провайдера. Сейчас релевантно только
 // для PaymentProviderPlatega: CRM-API маппит "sbp" в Platega paymentMethod=2,
-// "crypto" — в 13. Для остальных провайдеров поле остаётся nil и в JSON не
-// попадает (см. tag omitempty в InvoiceDraftInput.PaymentMethod).
+// "crypto" — в 13, "international" — в 12. Для остальных провайдеров поле
+// остаётся nil и в JSON не попадает (см. tag omitempty в
+// InvoiceDraftInput.PaymentMethod). USD-методы crypto/international
+// выставляются в долларах, sbp — в рублях.
 type PaymentMethod string
 
 const (
-	PaymentMethodSBP    PaymentMethod = "sbp"
-	PaymentMethodCrypto PaymentMethod = "crypto"
+	PaymentMethodSBP           PaymentMethod = "sbp"
+	PaymentMethodCrypto        PaymentMethod = "crypto"
+	PaymentMethodInternational PaymentMethod = "international"
 )
 
 // SupportedPaymentMethods — список всех поддерживаемых способов оплаты.
 var SupportedPaymentMethods = []PaymentMethod{
 	PaymentMethodSBP,
 	PaymentMethodCrypto,
+	PaymentMethodInternational,
 }
 
 // IsValid возвращает true, если значение совпадает с одним из поддерживаемых
@@ -123,7 +127,7 @@ func (in InvoiceDraftInput) Validate() error {
 		}
 	}
 	if in.PaymentMethod != nil && !in.PaymentMethod.IsValid() {
-		return &ValidationError{Message: "payment_method must be one of: sbp, crypto"}
+		return &ValidationError{Message: "payment_method must be one of: sbp, crypto, international"}
 	}
 	return nil
 }

@@ -195,6 +195,9 @@ func TestPaymentMethodConstants(t *testing.T) {
 	if PaymentMethodCrypto != "crypto" {
 		t.Fatalf("PaymentMethodCrypto = %q, want %q", PaymentMethodCrypto, "crypto")
 	}
+	if PaymentMethodInternational != "international" {
+		t.Fatalf("PaymentMethodInternational = %q, want %q", PaymentMethodInternational, "international")
+	}
 }
 
 func TestPaymentMethodIsValid(t *testing.T) {
@@ -203,6 +206,9 @@ func TestPaymentMethodIsValid(t *testing.T) {
 	}
 	if !PaymentMethodCrypto.IsValid() {
 		t.Fatalf("PaymentMethodCrypto must be valid")
+	}
+	if !PaymentMethodInternational.IsValid() {
+		t.Fatalf("PaymentMethodInternational must be valid")
 	}
 	if PaymentMethod("cards").IsValid() {
 		t.Fatalf("'cards' must not be valid")
@@ -305,6 +311,26 @@ func TestInvoiceDraftMarshalPlategaCrypto(t *testing.T) {
 	got := string(data)
 	if !strings.Contains(got, `"payment_method":"crypto"`) {
 		t.Fatalf("expected payment_method=crypto in JSON: %s", got)
+	}
+}
+
+func TestInvoiceDraftMarshalPlategaInternational(t *testing.T) {
+	pm := PaymentMethodInternational
+	in := InvoiceDraftInput{
+		ClientID:        1,
+		ProductIDs:      []int64{1},
+		DiscountPercent: 0,
+		Months:          1,
+		Provider:        "platega",
+		PaymentMethod:   &pm,
+	}
+	data, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	got := string(data)
+	if !strings.Contains(got, `"payment_method":"international"`) {
+		t.Fatalf("expected payment_method=international in JSON: %s", got)
 	}
 }
 
