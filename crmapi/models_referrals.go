@@ -28,3 +28,27 @@ type ReferralsInfoResult struct {
 	AvailableUSD  float64        `json:"available_usd"`
 	Referrees     []ReferreeInfo `json:"referrees"`
 }
+
+// WithdrawRequestResult — результат заявки на вывод
+// (POST /referrals/withdraw/request).
+//
+// Status: "no_balance" | "already_pending" | "created". Поля заполняются по
+// ветке (nullable): AmountUSD/WithdrawalID — для pending/created,
+// AvailableUSD — для no_balance.
+type WithdrawRequestResult struct {
+	Status       string   `json:"status"`
+	WithdrawalID *int64   `json:"withdrawal_id,omitempty"`
+	AmountUSD    *float64 `json:"amount_usd,omitempty"`
+	Method       *string  `json:"method,omitempty"`
+	AvailableUSD *float64 `json:"available_usd,omitempty"`
+}
+
+// WithdrawSettleResult — результат проведения вывода
+// (POST /referrals/withdraw/settle).
+type WithdrawSettleResult struct {
+	Status            string  `json:"status"`
+	WithdrawalID      int64   `json:"withdrawal_id"`
+	PaidUSD           float64 `json:"paid_usd"`
+	AvailableAfterUSD float64 `json:"available_after_usd"`
+	Method            string  `json:"method"`
+}
