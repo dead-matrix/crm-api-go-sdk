@@ -120,13 +120,14 @@ type TransferRedeemResult struct {
 // AccessManageInput is the request body for ManageAccess (POST /api/access/manage):
 // ручная выдача/снятие доступа сотрудником без оплаты.
 type AccessManageInput struct {
-	UserID   int64      `json:"user_id"`
-	BotID    int64      `json:"bot_id"`
-	Op       string     `json:"op"`
-	Features []string   `json:"features,omitempty"`
-	Days     *int       `json:"days,omitempty"`
-	End      *time.Time `json:"end,omitempty"`
-	Note     *string    `json:"note,omitempty"`
+	UserID         int64      `json:"user_id"`
+	BotID          int64      `json:"bot_id"`
+	Op             string     `json:"op"`
+	Features       []string   `json:"features,omitempty"`
+	Days           *int       `json:"days,omitempty"`
+	End            *time.Time `json:"end,omitempty"`
+	Note           *string    `json:"note,omitempty"`
+	IdempotencyKey *string    `json:"idempotency_key,omitempty"`
 }
 
 // Validate checks required fields and the op enum. Бизнес-валидация (фичи,

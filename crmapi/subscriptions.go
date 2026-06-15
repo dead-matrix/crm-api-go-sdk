@@ -3,6 +3,7 @@ package crmapi
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dead-matrix/crm-api-go-sdk/crmapi/internal/utils"
@@ -51,6 +52,7 @@ func (c *Client) AddAccess(ctx context.Context, input AddAccessInput) (*AddAcces
 }
 
 func (c *Client) ManageAccess(ctx context.Context, input AccessManageInput) (*AccessManageResult, error) {
+	input.Op = strings.ToLower(strings.TrimSpace(input.Op))
 	if err := input.Validate(); err != nil {
 		return nil, err
 	}
