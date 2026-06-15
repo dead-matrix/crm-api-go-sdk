@@ -116,3 +116,43 @@ type TransferRedeemResult struct {
 	Access          any        `json:"access,omitempty"`
 	AccessEnd       *time.Time `json:"access_end,omitempty"`
 }
+
+// AccessManageInput is the request body for ManageAccess (POST /api/access/manage):
+// ручная выдача/снятие доступа сотрудником без оплаты.
+type AccessManageInput struct {
+	UserID   int64      `json:"user_id"`
+	BotID    int64      `json:"bot_id"`
+	Op       string     `json:"op"`
+	Features []string   `json:"features,omitempty"`
+	Days     *int       `json:"days,omitempty"`
+	End      *time.Time `json:"end,omitempty"`
+	Note     *string    `json:"note,omitempty"`
+}
+
+// Validate checks required fields and the op enum. Бизнес-валидация (фичи,
+// days/end по операции) выполняется сервером.
+func (in AccessManageInput) Validate() error {
+	if in.UserID <= 0 {
+		return &ValidationError{Message: "user_id must be a positive integer"}
+	}
+	if in.BotID <= 0 {
+		return &ValidationError{Message: "bot_id must be a positive integer"}
+	}
+	switch in.Op {
+	case "grant", "extend", "remove_features", "revoke_all":
+	default:
+		return &ValidationError{Message: "op must be one of: grant, extend, remove_features, revoke_all"}
+	}
+	return nil
+}
+
+// AccessManageResult is the response of ManageAccess.
+type AccessManageResult struct {
+	UserID      int64      `json:"user_id"`
+	BotID       int64      `json:"bot_id"`
+	Op          string     `json:"op"`
+	Action      string     `json:"action"`
+	Access      any        `json:"access,omitempty"`
+	AccessEnd   *time.Time `json:"access_end,omitempty"`
+	CrmAccessID *int64     `json:"crm_access_id,omitempty"`
+}

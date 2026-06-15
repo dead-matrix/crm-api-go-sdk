@@ -50,6 +50,41 @@ func (c *Client) AddAccess(ctx context.Context, input AddAccessInput) (*AddAcces
 	}, nil
 }
 
+func (c *Client) ManageAccess(ctx context.Context, input AccessManageInput) (*AccessManageResult, error) {
+	if err := input.Validate(); err != nil {
+		return nil, err
+	}
+
+	var raw struct {
+		UserID      int64   `json:"user_id"`
+		BotID       int64   `json:"bot_id"`
+		Op          string  `json:"op"`
+		Action      string  `json:"action"`
+		Access      any     `json:"access"`
+		AccessEnd   *string `json:"access_end"`
+		CrmAccessID *int64  `json:"crm_access_id"`
+	}
+
+	if err := c.post(ctx, "/api/access/manage", nil, true, input, &raw); err != nil {
+		return nil, err
+	}
+
+	var accessEnd *time.Time
+	if raw.AccessEnd != nil {
+		accessEnd = utils.ParseTime(*raw.AccessEnd)
+	}
+
+	return &AccessManageResult{
+		UserID:      raw.UserID,
+		BotID:       raw.BotID,
+		Op:          raw.Op,
+		Action:      raw.Action,
+		Access:      raw.Access,
+		AccessEnd:   accessEnd,
+		CrmAccessID: raw.CrmAccessID,
+	}, nil
+}
+
 func (c *Client) SubscriptionsHistory(ctx context.Context, userID int64) (*SubscriptionsHistoryResult, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
