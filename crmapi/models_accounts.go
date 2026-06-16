@@ -30,6 +30,9 @@ type AccountItem struct {
 	// Removed — аккаунт удалён. Заполняется только при include_removed=true
 	// (без него CRM такие строки не отдаёт вовсе).
 	Removed bool `json:"removed"`
+	// Proxy — привязанный прокси аккаунта как ip:port (без логина/пароля);
+	// nil, если прокси не задан. CRM санитизирует на своей стороне.
+	Proxy *string `json:"proxy,omitempty"`
 }
 
 type ProfileStatistics struct {

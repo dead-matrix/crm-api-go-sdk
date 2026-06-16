@@ -49,6 +49,7 @@ func (c *Client) AccountsList(ctx context.Context, userID int64, includeRemoved 
 		} `json:"reactions"`
 		FirstLoad *string `json:"first_load"`
 		Removed   bool    `json:"removed"`
+		Proxy     *string `json:"proxy"`
 	}
 
 	query := map[string]string{
@@ -100,6 +101,7 @@ func (c *Client) AccountsList(ctx context.Context, userID int64, includeRemoved 
 			},
 			FirstLoad: a.FirstLoad,
 			Removed:   a.Removed,
+			Proxy:     a.Proxy,
 		})
 	}
 

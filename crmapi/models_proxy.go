@@ -23,3 +23,16 @@ type ProxyItem struct {
 	Valid    bool    `json:"valid"`
 	Location *string `json:"location,omitempty"`
 }
+
+// ProxyBindingsResult — сводка привязок прокси к аккаунтам пользователя
+// (основной бот), GET /api/proxy/bindings. Аккаунт хранит прокси строкой;
+// CRM матчит аккаунты с таблицей прокси по ip:port и считает агрегаты.
+type ProxyBindingsResult struct {
+	TotalAccounts          int64   `json:"total_accounts"`
+	AccountsWithProxy      int64   `json:"accounts_with_proxy"`
+	AccountsWithoutProxy   int64   `json:"accounts_without_proxy"`
+	TotalProxies           int64   `json:"total_proxies"`
+	ProxiesWithAccounts    int64   `json:"proxies_with_accounts"`
+	ProxiesWithoutAccounts int64   `json:"proxies_without_accounts"`
+	AvgAccountsPerProxy    float64 `json:"avg_accounts_per_proxy"`
+}

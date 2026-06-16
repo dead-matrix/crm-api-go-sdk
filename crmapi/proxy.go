@@ -86,3 +86,40 @@ func (c *Client) ProxyList(ctx context.Context, userID int64) ([]ProxyItem, erro
 
 	return items, nil
 }
+
+// ProxyBindings возвращает сводку привязок прокси к аккаунтам пользователя:
+// сколько аккаунтов с прокси и без, среднее число аккаунтов на задействованный
+// прокси и сколько прокси не привязаны ни к одному аккаунту.
+func (c *Client) ProxyBindings(ctx context.Context, userID int64) (*ProxyBindingsResult, error) {
+	if userID <= 0 {
+		return nil, &ValidationError{Message: "user_id must be a positive integer"}
+	}
+
+	query := map[string]string{
+		"user_id": fmt.Sprintf("%d", userID),
+	}
+
+	var raw struct {
+		TotalAccounts          int64   `json:"total_accounts"`
+		AccountsWithProxy      int64   `json:"accounts_with_proxy"`
+		AccountsWithoutProxy   int64   `json:"accounts_without_proxy"`
+		TotalProxies           int64   `json:"total_proxies"`
+		ProxiesWithAccounts    int64   `json:"proxies_with_accounts"`
+		ProxiesWithoutAccounts int64   `json:"proxies_without_accounts"`
+		AvgAccountsPerProxy    float64 `json:"avg_accounts_per_proxy"`
+	}
+
+	if err := c.get(ctx, "/api/proxy/bindings", query, true, &raw); err != nil {
+		return nil, err
+	}
+
+	return &ProxyBindingsResult{
+		TotalAccounts:          raw.TotalAccounts,
+		AccountsWithProxy:      raw.AccountsWithProxy,
+		AccountsWithoutProxy:   raw.AccountsWithoutProxy,
+		TotalProxies:           raw.TotalProxies,
+		ProxiesWithAccounts:    raw.ProxiesWithAccounts,
+		ProxiesWithoutAccounts: raw.ProxiesWithoutAccounts,
+		AvgAccountsPerProxy:    raw.AvgAccountsPerProxy,
+	}, nil
+}
