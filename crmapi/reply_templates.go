@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/dead-matrix/crm-api-go-sdk/crmapi/internal/utils"
 )
@@ -113,6 +114,7 @@ func (c *Client) ReplyTemplatesList(ctx context.Context, limit int64, offset int
 		PublicID   string               `json:"publicId"`
 		Title      string               `json:"title"`
 		Kind       string               `json:"kind"`
+		Command    *string              `json:"command"`
 		Creator    ReplyTemplateCreator `json:"creator"`
 		Preview    ReplyTemplatePreview `json:"preview"`
 		UsageCount int64                `json:"usageCount"`
@@ -132,6 +134,7 @@ func (c *Client) ReplyTemplatesList(ctx context.Context, limit int64, offset int
 			PublicID:   row.PublicID,
 			Title:      row.Title,
 			Kind:       row.Kind,
+			Command:    row.Command,
 			Creator:    row.Creator,
 			Preview:    row.Preview,
 			UsageCount: row.UsageCount,
@@ -157,6 +160,7 @@ func (c *Client) ReplyTemplatesGet(ctx context.Context, templateID int64) (*Repl
 		PublicID  string                 `json:"publicId"`
 		Title     string                 `json:"title"`
 		Kind      string                 `json:"kind"`
+		Command   *string                `json:"command"`
 		Creator   ReplyTemplateCreator   `json:"creator"`
 		Items     []rawReplyTemplateItem `json:"items"`
 		CreatedAt *string                `json:"createdAt"`
@@ -177,6 +181,7 @@ func (c *Client) ReplyTemplatesGet(ctx context.Context, templateID int64) (*Repl
 		PublicID:  raw.PublicID,
 		Title:     raw.Title,
 		Kind:      raw.Kind,
+		Command:   raw.Command,
 		Creator:   raw.Creator,
 		Items:     items,
 		CreatedAt: parseOptionalTime(raw.CreatedAt),
@@ -198,6 +203,7 @@ func (c *Client) ReplyTemplatesCreate(ctx context.Context, input CreateReplyTemp
 		PublicID  string                 `json:"publicId"`
 		Title     string                 `json:"title"`
 		Kind      string                 `json:"kind"`
+		Command   *string                `json:"command"`
 		Creator   ReplyTemplateCreator   `json:"creator"`
 		Items     []rawReplyTemplateItem `json:"items"`
 		CreatedAt *string                `json:"createdAt"`
@@ -218,6 +224,94 @@ func (c *Client) ReplyTemplatesCreate(ctx context.Context, input CreateReplyTemp
 		PublicID:  raw.PublicID,
 		Title:     raw.Title,
 		Kind:      raw.Kind,
+		Command:   raw.Command,
+		Creator:   raw.Creator,
+		Items:     items,
+		CreatedAt: parseOptionalTime(raw.CreatedAt),
+		UpdatedAt: parseOptionalTime(raw.UpdatedAt),
+	}, nil
+}
+
+// replyTemplateCommandPattern mirrors the CRM regex: letters (any script,
+// so Cyrillic too), digits, underscore. Applied to the already-cleaned
+// token (leading "/" stripped, trimmed, lower-cased).
+var replyTemplateCommandPattern = regexp.MustCompile(`^[\p{L}\p{N}_]+$`)
+
+// normalizeReplyTemplateCommand cleans + validates a command for SetCommand.
+// nil / empty / "/" → nil (meaning "clear the command"). Otherwise strips a
+// leading "/", trims, lower-cases, and validates length + charset — mirroring
+// the CRM's _normalize_command_input so a malformed value fails fast before
+// the round-trip. The keyboard-layout canonicalisation used for uniqueness
+// lives server-side (and in the messenger frontend for matching); the SDK
+// only validates shape.
+func normalizeReplyTemplateCommand(command *string) (*string, error) {
+	if command == nil {
+		return nil, nil
+	}
+	s := strings.TrimSpace(*command)
+	s = strings.TrimPrefix(s, "/")
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
+	}
+	s = strings.ToLower(s)
+	if utf8.RuneCountInString(s) > ReplyTemplateCommandMaxLength {
+		return nil, &ValidationError{Message: fmt.Sprintf("command must be at most %d characters", ReplyTemplateCommandMaxLength)}
+	}
+	if !replyTemplateCommandPattern.MatchString(s) {
+		return nil, &ValidationError{Message: "command may contain only letters, digits and underscore"}
+	}
+	return &s, nil
+}
+
+// ReplyTemplatesSetCommand sets or clears the slash-command trigger of a
+// template. command=nil (or a pointer to an empty / slash-only string)
+// CLEARS the command; a non-empty value sets it. The value is normalised
+// here (trim, strip leading "/", lower-case) and shape-validated before the
+// PATCH. The server additionally enforces creator-only authorisation
+// (HTTP 403 → AuthError) and global uniqueness by the layout-canonical form
+// (HTTP 409 → APIError). Returns the updated full template.
+func (c *Client) ReplyTemplatesSetCommand(ctx context.Context, templateID int64, command *string) (*ReplyTemplateFull, error) {
+	if templateID <= 0 {
+		return nil, &ValidationError{Message: "template_id must be a positive integer"}
+	}
+
+	normalized, err := normalizeReplyTemplateCommand(command)
+	if err != nil {
+		return nil, err
+	}
+
+	body := struct {
+		Command *string `json:"command"`
+	}{Command: normalized}
+
+	var raw struct {
+		ID        int64                  `json:"id"`
+		PublicID  string                 `json:"publicId"`
+		Title     string                 `json:"title"`
+		Kind      string                 `json:"kind"`
+		Command   *string                `json:"command"`
+		Creator   ReplyTemplateCreator   `json:"creator"`
+		Items     []rawReplyTemplateItem `json:"items"`
+		CreatedAt *string                `json:"createdAt"`
+		UpdatedAt *string                `json:"updatedAt"`
+	}
+
+	if err := c.patch(ctx, fmt.Sprintf("/api/reply-templates/%d", templateID), nil, true, body, &raw); err != nil {
+		return nil, err
+	}
+
+	items := make([]ReplyTemplateItem, 0, len(raw.Items))
+	for _, it := range raw.Items {
+		items = append(items, it.toPublic())
+	}
+
+	return &ReplyTemplateFull{
+		ID:        raw.ID,
+		PublicID:  raw.PublicID,
+		Title:     raw.Title,
+		Kind:      raw.Kind,
+		Command:   raw.Command,
 		Creator:   raw.Creator,
 		Items:     items,
 		CreatedAt: parseOptionalTime(raw.CreatedAt),

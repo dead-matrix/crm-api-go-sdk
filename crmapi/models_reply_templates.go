@@ -30,10 +30,16 @@ type ReplyTemplatePreview struct {
 // emit `null`, matching the CRM contract where these fields default
 // to absent for never-used templates.
 type ReplyTemplateListItem struct {
-	ID         int64                `json:"id"`
-	PublicID   string               `json:"publicId"`
-	Title      string               `json:"title"`
-	Kind       string               `json:"kind"`
+	ID       int64  `json:"id"`
+	PublicID string `json:"publicId"`
+	Title    string `json:"title"`
+	Kind     string `json:"kind"`
+	// Command is the optional slash-trigger for the messenger composer
+	// (without the leading "/", lower-cased as the author typed it, e.g.
+	// "hi"). Globally unique by its keyboard-layout-canonical form. nil
+	// when the template has no command. The greeting's built-in "/hi" is
+	// messenger-local and never appears here.
+	Command    *string              `json:"command,omitempty"`
 	Creator    ReplyTemplateCreator `json:"creator"`
 	Preview    ReplyTemplatePreview `json:"preview"`
 	UsageCount int64                `json:"usageCount"`
@@ -138,10 +144,13 @@ type UpsertDeliveryRefsInput struct {
 // ReplyTemplateFull is returned by ReplyTemplatesGet. Items are sorted
 // by Position ascending.
 type ReplyTemplateFull struct {
-	ID        int64                `json:"id"`
-	PublicID  string               `json:"publicId"`
-	Title     string               `json:"title"`
-	Kind      string               `json:"kind"`
+	ID       int64  `json:"id"`
+	PublicID string `json:"publicId"`
+	Title    string `json:"title"`
+	Kind     string `json:"kind"`
+	// Command — see ReplyTemplateListItem.Command. Returned by Get and by
+	// the SetCommand PATCH response.
+	Command   *string              `json:"command,omitempty"`
 	Creator   ReplyTemplateCreator `json:"creator"`
 	Items     []ReplyTemplateItem  `json:"items"`
 	CreatedAt *time.Time           `json:"createdAt,omitempty"`
@@ -199,9 +208,10 @@ const (
 
 // Hard limits enforced by the server (kept in sync with CRM Pydantic).
 const (
-	ReplyTemplateTitleMaxLength = 255
-	ReplyTemplateCaptionMax     = 4096
-	ReplyTemplateAlbumMinItems  = 2
-	ReplyTemplateAlbumMaxItems  = 10
-	ReplyTemplateItemMaxPos     = 9
+	ReplyTemplateTitleMaxLength   = 255
+	ReplyTemplateCaptionMax       = 4096
+	ReplyTemplateAlbumMinItems    = 2
+	ReplyTemplateAlbumMaxItems    = 10
+	ReplyTemplateItemMaxPos       = 9
+	ReplyTemplateCommandMaxLength = 64
 )

@@ -166,6 +166,10 @@ func (c *Client) put(ctx context.Context, path string, query map[string]string, 
 	return c.doJSON(ctx, http.MethodPut, c.baseURL+path, nil, query, needAuth, body, out)
 }
 
+func (c *Client) patch(ctx context.Context, path string, query map[string]string, needAuth bool, body any, out any) error {
+	return c.doJSON(ctx, http.MethodPatch, c.baseURL+path, nil, query, needAuth, body, out)
+}
+
 func (c *Client) delete(ctx context.Context, path string, query map[string]string, needAuth bool, out any) error {
 	return c.doJSON(ctx, http.MethodDelete, c.baseURL+path, nil, query, needAuth, nil, out)
 }
