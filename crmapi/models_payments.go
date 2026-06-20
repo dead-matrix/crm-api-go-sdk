@@ -95,14 +95,23 @@ type PaymentsListResult struct {
 //
 // RepeatPurchase is true when the client has already paid in this same
 // category before (per-category, not overall).
+//
+// FirstEverPurchase is true when this is the client's very first paid
+// purchase overall (across ALL categories). It differs from
+// !RepeatPurchase for a returning client buying in a new category. Sales
+// attribution should key on this (not RepeatPurchase): the "credit the
+// first writer in the dialog" rule applies ONLY to a client's first-ever
+// purchase; every later purchase by a returning client goes to the
+// payment-link creator.
 type Sale struct {
-	UUID           string     `json:"uuid"`
-	UserID         int64      `json:"user_id"`
-	StaffID        *int64     `json:"staff_id,omitempty"`
-	AmountMinor    int64      `json:"amount_minor"`
-	Category       string     `json:"category"`
-	RepeatPurchase bool       `json:"repeat_purchase"`
-	DatePaid       *time.Time `json:"date_paid,omitempty"`
+	UUID              string     `json:"uuid"`
+	UserID            int64      `json:"user_id"`
+	StaffID           *int64     `json:"staff_id,omitempty"`
+	AmountMinor       int64      `json:"amount_minor"`
+	Category          string     `json:"category"`
+	RepeatPurchase    bool       `json:"repeat_purchase"`
+	FirstEverPurchase bool       `json:"first_ever_purchase"`
+	DatePaid          *time.Time `json:"date_paid,omitempty"`
 }
 
 // MonthlySalesResult is the response of GET /api/payments/sales — all paid

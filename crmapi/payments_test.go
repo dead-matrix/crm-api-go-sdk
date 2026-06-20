@@ -186,21 +186,21 @@ func TestGetMonthlySalesReturnsCategorizedPayments(t *testing.T) {
 						"uuid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 						"user_id":100,"staff_id":200,
 						"amount_minor":600000,
-						"category":"main","repeat_purchase":true,
+						"category":"main","repeat_purchase":true,"first_ever_purchase":false,
 						"date_paid":"2026-04-10T12:00:00Z"
 					},
 					{
 						"uuid":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 						"user_id":101,"staff_id":null,
 						"amount_minor":100000,
-						"category":"other","repeat_purchase":false,
+						"category":"other","repeat_purchase":false,"first_ever_purchase":true,
 						"date_paid":"2026-04-11T12:00:00Z"
 					},
 					{
 						"uuid":"cccccccccccccccccccccccccccccccc",
 						"user_id":102,"staff_id":201,
 						"amount_minor":300000,
-						"category":"extra","repeat_purchase":false,
+						"category":"extra","repeat_purchase":false,"first_ever_purchase":false,
 						"date_paid":null
 					}
 				]
@@ -227,6 +227,10 @@ func TestGetMonthlySalesReturnsCategorizedPayments(t *testing.T) {
 	if !mainRepeat.RepeatPurchase {
 		t.Fatalf("RepeatPurchase = false, want true")
 	}
+	// Returning client (repeat) → not their first-ever purchase.
+	if mainRepeat.FirstEverPurchase {
+		t.Fatalf("FirstEverPurchase = true, want false")
+	}
 	if mainRepeat.StaffID == nil || *mainRepeat.StaffID != 200 {
 		t.Fatalf("StaffID = %v, want pointer to 200", mainRepeat.StaffID)
 	}
@@ -237,6 +241,10 @@ func TestGetMonthlySalesReturnsCategorizedPayments(t *testing.T) {
 	otherNew := res.Payments[1]
 	if otherNew.Category != "other" || otherNew.RepeatPurchase {
 		t.Fatalf("otherNew = %+v", otherNew)
+	}
+	// This client's first-ever paid purchase → first_ever_purchase true.
+	if !otherNew.FirstEverPurchase {
+		t.Fatalf("FirstEverPurchase = false, want true")
 	}
 	if otherNew.StaffID != nil {
 		t.Fatalf("StaffID = %v, want nil (null in response)", otherNew.StaffID)

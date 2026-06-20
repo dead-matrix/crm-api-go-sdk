@@ -318,13 +318,14 @@ func (c *Client) GetMonthlySales(ctx context.Context) (*MonthlySalesResult, erro
 	var raw struct {
 		MonthStart *string `json:"month_start"`
 		Payments   []struct {
-			UUID           string  `json:"uuid"`
-			UserID         int64   `json:"user_id"`
-			StaffID        *int64  `json:"staff_id"`
-			AmountMinor    int64   `json:"amount_minor"`
-			Category       string  `json:"category"`
-			RepeatPurchase bool    `json:"repeat_purchase"`
-			DatePaid       *string `json:"date_paid"`
+			UUID              string  `json:"uuid"`
+			UserID            int64   `json:"user_id"`
+			StaffID           *int64  `json:"staff_id"`
+			AmountMinor       int64   `json:"amount_minor"`
+			Category          string  `json:"category"`
+			RepeatPurchase    bool    `json:"repeat_purchase"`
+			FirstEverPurchase bool    `json:"first_ever_purchase"`
+			DatePaid          *string `json:"date_paid"`
 		} `json:"payments"`
 	}
 
@@ -344,13 +345,14 @@ func (c *Client) GetMonthlySales(ctx context.Context) (*MonthlySalesResult, erro
 			datePaid = utils.ParseTime(*p.DatePaid)
 		}
 		sales = append(sales, Sale{
-			UUID:           p.UUID,
-			UserID:         p.UserID,
-			StaffID:        p.StaffID,
-			AmountMinor:    p.AmountMinor,
-			Category:       p.Category,
-			RepeatPurchase: p.RepeatPurchase,
-			DatePaid:       datePaid,
+			UUID:              p.UUID,
+			UserID:            p.UserID,
+			StaffID:           p.StaffID,
+			AmountMinor:       p.AmountMinor,
+			Category:          p.Category,
+			RepeatPurchase:    p.RepeatPurchase,
+			FirstEverPurchase: p.FirstEverPurchase,
+			DatePaid:          datePaid,
 		})
 	}
 
