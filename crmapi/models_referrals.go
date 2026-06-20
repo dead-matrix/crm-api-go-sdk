@@ -19,14 +19,20 @@ type ReferreeInfo struct {
 }
 
 type ReferralsInfoResult struct {
-	RefLink       string         `json:"ref_link"`
-	Percent       int64          `json:"percent"`
-	Registrations int64          `json:"registrations"`
-	RefPayments   int64          `json:"ref_payments"`
-	RefTotalSum   int64          `json:"ref_total_sum"`
-	EarnedUSD     float64        `json:"earned_usd"`
-	AvailableUSD  float64        `json:"available_usd"`
-	Referrees     []ReferreeInfo `json:"referrees"`
+	RefLink       string  `json:"ref_link"`
+	Percent       int64   `json:"percent"`
+	Registrations int64   `json:"registrations"`
+	RefPayments   int64   `json:"ref_payments"`
+	RefTotalSum   int64   `json:"ref_total_sum"`
+	// EarnedUSD — Σ выплаченных комиссий = всего ВЫВЕДЕНО (USD). AvailableUSD
+	// — текущий остаток к выводу. «Всего заработано» потребитель считает как
+	// EarnedUSD + AvailableUSD. WithdrawnWalletUSD/WithdrawnSubscriptionUSD —
+	// разбивка выведенного по методам (сумма ≈ EarnedUSD).
+	EarnedUSD                float64        `json:"earned_usd"`
+	AvailableUSD             float64        `json:"available_usd"`
+	WithdrawnWalletUSD       float64        `json:"withdrawn_wallet_usd"`
+	WithdrawnSubscriptionUSD float64        `json:"withdrawn_subscription_usd"`
+	Referrees                []ReferreeInfo `json:"referrees"`
 }
 
 // WithdrawRequestResult — результат заявки на вывод

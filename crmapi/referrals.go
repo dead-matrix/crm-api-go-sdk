@@ -28,9 +28,11 @@ func (c *Client) ReferralsInfo(ctx context.Context, userID int64) (*ReferralsInf
 		Registrations int64   `json:"registrations"`
 		RefPayments   int64   `json:"ref_payments"`
 		RefTotalSum   int64   `json:"ref_total_sum"`
-		EarnedUSD     float64 `json:"earned_usd"`
-		AvailableUSD  float64 `json:"available_usd"`
-		Referrees     []struct {
+		EarnedUSD                float64 `json:"earned_usd"`
+		AvailableUSD             float64 `json:"available_usd"`
+		WithdrawnWalletUSD       float64 `json:"withdrawn_wallet_usd"`
+		WithdrawnSubscriptionUSD float64 `json:"withdrawn_subscription_usd"`
+		Referrees                []struct {
 			UserID           int64   `json:"user_id"`
 			FullName         *string `json:"full_name"`
 			Username         *string `json:"username"`
@@ -77,14 +79,16 @@ func (c *Client) ReferralsInfo(ctx context.Context, userID int64) (*ReferralsInf
 	}
 
 	return &ReferralsInfoResult{
-		RefLink:       raw.RefLink,
-		Percent:       raw.Percent,
-		Registrations: raw.Registrations,
-		RefPayments:   raw.RefPayments,
-		RefTotalSum:   raw.RefTotalSum,
-		EarnedUSD:     raw.EarnedUSD,
-		AvailableUSD:  raw.AvailableUSD,
-		Referrees:     referrees,
+		RefLink:                  raw.RefLink,
+		Percent:                  raw.Percent,
+		Registrations:            raw.Registrations,
+		RefPayments:              raw.RefPayments,
+		RefTotalSum:              raw.RefTotalSum,
+		EarnedUSD:                raw.EarnedUSD,
+		AvailableUSD:             raw.AvailableUSD,
+		WithdrawnWalletUSD:       raw.WithdrawnWalletUSD,
+		WithdrawnSubscriptionUSD: raw.WithdrawnSubscriptionUSD,
+		Referrees:                referrees,
 	}, nil
 }
 
