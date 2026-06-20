@@ -258,3 +258,36 @@ func TestGetMonthlySalesReturnsCategorizedPayments(t *testing.T) {
 		t.Fatalf("DatePaid = %v, want nil (null in response)", extraNoDate.DatePaid)
 	}
 }
+
+// LastPurchaseDates (POST /api/payments/last-purchase)
+func TestLastPurchaseDates(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/staff/123/auth":
+			fmt.Fprint(w, `{"status":"success","data":{"token":"jwt-1","expires_at":"2030-01-01T00:00:00Z"}}`)
+		case "/api/payments/last-purchase":
+			fmt.Fprint(w, `{"status":"success","data":{"100":"2026-06-01T12:00:00+03:00","101":null,"102":"2026-05-01T09:00:00Z"}}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := mustNewClient(t, server.URL, server.Client())
+	res, err := client.LastPurchaseDates(context.Background(), []int64{100, 101, 102})
+	if err != nil {
+		t.Fatalf("LastPurchaseDates() error = %v", err)
+	}
+	if len(res) != 3 {
+		t.Fatalf("len(res) = %d, want 3 (every requested id present)", len(res))
+	}
+	if res[100] == nil || res[100].Year() != 2026 {
+		t.Fatalf("res[100] = %v, want a 2026 date", res[100])
+	}
+	if res[101] != nil {
+		t.Fatalf("res[101] = %v, want nil (null in response)", res[101])
+	}
+	if res[102] == nil {
+		t.Fatalf("res[102] = nil, want a date")
+	}
+}

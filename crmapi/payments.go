@@ -3,6 +3,7 @@ package crmapi
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/dead-matrix/crm-api-go-sdk/crmapi/internal/utils"
@@ -360,6 +361,46 @@ func (c *Client) GetMonthlySales(ctx context.Context) (*MonthlySalesResult, erro
 		MonthStart: monthStart,
 		Payments:   sales,
 	}, nil
+}
+
+// LastPurchaseDates returns, for each given user (Telegram / external id), the
+// date of their most recent PAID purchase, or nil when they have never paid.
+// EVERY requested id is present in the result map (nil = no purchase). Backs
+// the messenger sales follow-up scheduler, which skips leads who bought
+// recently. POST /api/payments/last-purchase, body {"user_ids": [...]}.
+func (c *Client) LastPurchaseDates(ctx context.Context, userIDs []int64) (map[int64]*time.Time, error) {
+	out := make(map[int64]*time.Time, len(userIDs))
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+	body := struct {
+		UserIDs []int64 `json:"user_ids"`
+	}{UserIDs: userIDs}
+
+	// data is {"<user_id>": "<iso>" | null}.
+	var raw map[string]*string
+	if err := c.post(ctx, "/api/payments/last-purchase", nil, true, body, &raw); err != nil {
+		return nil, err
+	}
+	for k, v := range raw {
+		id, perr := strconv.ParseInt(k, 10, 64)
+		if perr != nil {
+			continue
+		}
+		if v == nil || *v == "" {
+			out[id] = nil
+			continue
+		}
+		out[id] = utils.ParseTime(*v)
+	}
+	// Defensive: the endpoint already returns every requested id, but never
+	// leave a caller-requested id absent from the map.
+	for _, id := range userIDs {
+		if _, ok := out[id]; !ok {
+			out[id] = nil
+		}
+	}
+	return out, nil
 }
 
 func (c *Client) ConfirmPayment(ctx context.Context, uuid string) (*ConfirmPaymentResult, error) {
