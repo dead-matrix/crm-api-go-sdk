@@ -30,6 +30,7 @@ func TestGetPaymentsReturnsEnvelopeWithPagination(t *testing.T) {
 						"amount_minor":99000,"currency":"RUB",
 						"items":[{"id":1,"title":"Product"}],
 						"provider":"yookassa",
+						"provider_invoice_id":"platega-tx-7788",
 						"date_create":"2024-01-10T10:00:00Z",
 						"date_paid":"2024-01-10T10:10:00Z",
 						"activation":[
@@ -70,6 +71,9 @@ func TestGetPaymentsReturnsEnvelopeWithPagination(t *testing.T) {
 	p := res.Items[0]
 	if p.UUID != "pay-001" || p.Status != "paid" || p.AmountMinor != 99000 {
 		t.Fatalf("payment = %+v", p)
+	}
+	if p.ProviderInvoiceID == nil || *p.ProviderInvoiceID != "platega-tx-7788" {
+		t.Fatalf("ProviderInvoiceID = %v, want platega-tx-7788", p.ProviderInvoiceID)
 	}
 	if len(p.Activation) != 1 || p.Activation[0].Code != "ABC123" {
 		t.Fatalf("activation = %+v", p.Activation)

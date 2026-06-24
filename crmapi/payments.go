@@ -212,27 +212,28 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64, limit int64, of
 		Offset int64 `json:"offset"`
 		Count  int64 `json:"count"`
 		Items  []struct {
-			UUID            string           `json:"uuid"`
-			Status          string           `json:"status"`
-			StatusRU        string           `json:"status_ru"`
-			ClientID        int64            `json:"client_id"`
-			ClientEmail     *string          `json:"client_email"`
-			RefererID       *int64           `json:"referer_id"`
-			StaffID         *int64           `json:"staff_id"`
-			AmountMinor     int64            `json:"amount_minor"`
-			FXRateRUBUSD    *float64         `json:"fx_rate_rub_usd"`
-			Currency        string           `json:"currency"`
-			DiscountPercent *int64           `json:"discount_percent"`
-			Description     *string          `json:"description"`
-			Items           []map[string]any `json:"items"`
-			Provider        *string          `json:"provider"`
-			PayLink         *string          `json:"pay_link"`
-			PayURL          *string          `json:"pay_url"`
-			DateCreate      *string          `json:"date_create"`
-			DateInvoiced    *string          `json:"date_invoiced"`
-			DatePaid        *string          `json:"date_paid"`
-			PaymentMethod   *string          `json:"payment_method"`
-			Activation      []struct {
+			UUID              string           `json:"uuid"`
+			Status            string           `json:"status"`
+			StatusRU          string           `json:"status_ru"`
+			ClientID          int64            `json:"client_id"`
+			ClientEmail       *string          `json:"client_email"`
+			RefererID         *int64           `json:"referer_id"`
+			StaffID           *int64           `json:"staff_id"`
+			AmountMinor       int64            `json:"amount_minor"`
+			FXRateRUBUSD      *float64         `json:"fx_rate_rub_usd"`
+			Currency          string           `json:"currency"`
+			DiscountPercent   *int64           `json:"discount_percent"`
+			Description       *string          `json:"description"`
+			Items             []map[string]any `json:"items"`
+			Provider          *string          `json:"provider"`
+			ProviderInvoiceID *string          `json:"provider_invoice_id"`
+			PayLink           *string          `json:"pay_link"`
+			PayURL            *string          `json:"pay_url"`
+			DateCreate        *string          `json:"date_create"`
+			DateInvoiced      *string          `json:"date_invoiced"`
+			DatePaid          *string          `json:"date_paid"`
+			PaymentMethod     *string          `json:"payment_method"`
+			Activation        []struct {
 				BotID  *int64 `json:"bot_id"`
 				Code   string `json:"code"`
 				IsUsed bool   `json:"is_used"`
@@ -277,27 +278,28 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64, limit int64, of
 		}
 
 		items = append(items, PaymentHistoryItem{
-			UUID:            p.UUID,
-			Status:          p.Status,
-			StatusRU:        p.StatusRU,
-			ClientID:        p.ClientID,
-			ClientEmail:     p.ClientEmail,
-			RefererID:       p.RefererID,
-			StaffID:         p.StaffID,
-			AmountMinor:     p.AmountMinor,
-			FXRateRUBUSD:    p.FXRateRUBUSD,
-			Currency:        currency,
-			DiscountPercent: p.DiscountPercent,
-			Description:     p.Description,
-			Items:           p.Items,
-			Provider:        p.Provider,
-			PayLink:         p.PayLink,
-			PayURL:          p.PayURL,
-			DateCreate:      dateCreate,
-			DateInvoiced:    dateInvoiced,
-			DatePaid:        datePaid,
-			Activation:      activation,
-			PaymentMethod:   p.PaymentMethod,
+			UUID:              p.UUID,
+			Status:            p.Status,
+			StatusRU:          p.StatusRU,
+			ClientID:          p.ClientID,
+			ClientEmail:       p.ClientEmail,
+			RefererID:         p.RefererID,
+			StaffID:           p.StaffID,
+			AmountMinor:       p.AmountMinor,
+			FXRateRUBUSD:      p.FXRateRUBUSD,
+			Currency:          currency,
+			DiscountPercent:   p.DiscountPercent,
+			Description:       p.Description,
+			Items:             p.Items,
+			Provider:          p.Provider,
+			ProviderInvoiceID: p.ProviderInvoiceID,
+			PayLink:           p.PayLink,
+			PayURL:            p.PayURL,
+			DateCreate:        dateCreate,
+			DateInvoiced:      dateInvoiced,
+			DatePaid:          datePaid,
+			Activation:        activation,
+			PaymentMethod:     p.PaymentMethod,
 		})
 	}
 

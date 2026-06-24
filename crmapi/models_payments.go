@@ -52,12 +52,17 @@ type PaymentHistoryItem struct {
 	Description     *string          `json:"description,omitempty"`
 	Items           []map[string]any `json:"items"`
 	Provider        *string          `json:"provider,omitempty"`
-	PayLink         *string          `json:"pay_link,omitempty"`
-	PayURL          *string          `json:"pay_url,omitempty"`
-	DateCreate      *time.Time       `json:"date_create,omitempty"`
-	DateInvoiced    *time.Time       `json:"date_invoiced,omitempty"`
-	DatePaid        *time.Time       `json:"date_paid,omitempty"`
-	Activation      []ActivationLink `json:"activation"`
+	// ProviderInvoiceID — внутренний идентификатор платежа на стороне
+	// провайдера. Для platega это transactionId — именно он нужен оператору
+	// при обращении в поддержку Platega (а не наш uuid). nil у черновиков без
+	// выставленного счёта и у старых версий CRM-API, не возвращающих поле.
+	ProviderInvoiceID *string          `json:"provider_invoice_id,omitempty"`
+	PayLink           *string          `json:"pay_link,omitempty"`
+	PayURL            *string          `json:"pay_url,omitempty"`
+	DateCreate        *time.Time       `json:"date_create,omitempty"`
+	DateInvoiced      *time.Time       `json:"date_invoiced,omitempty"`
+	DatePaid          *time.Time       `json:"date_paid,omitempty"`
+	Activation        []ActivationLink `json:"activation"`
 	// Способ оплаты внутри провайдера ("sbp" | "crypto" для platega; nil
 	// для исторических записей и других провайдеров). Опционально:
 	// старые версии CRM-API поле не возвращают.
