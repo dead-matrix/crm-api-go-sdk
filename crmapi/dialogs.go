@@ -17,6 +17,7 @@ func (c *Client) GetDialogs(ctx context.Context, department string) ([]DialogIte
 			UserID                int64   `json:"user_id"`
 			FullName              *string `json:"full_name"`
 			HasActiveSubscription bool    `json:"has_active_subscription"`
+			Frozen                bool    `json:"frozen"`
 			Status                *string `json:"status"`
 			StatusColor           *string `json:"status_color"`
 		} `json:"dialogs"`
@@ -32,6 +33,7 @@ func (c *Client) GetDialogs(ctx context.Context, department string) ([]DialogIte
 			UserID:                r.UserID,
 			FullName:              r.FullName,
 			HasActiveSubscription: r.HasActiveSubscription,
+			Frozen:                r.Frozen,
 			Status:                r.Status,
 			StatusColor:           r.StatusColor,
 		})
@@ -178,6 +180,7 @@ func (c *Client) SearchDialogs(ctx context.Context, department string, q string,
 			UserID                int64   `json:"user_id"`
 			FullName              *string `json:"full_name"`
 			HasActiveSubscription bool    `json:"has_active_subscription"`
+			Frozen                bool    `json:"frozen"`
 			Status                *string `json:"status"`
 			StatusColor           *string `json:"status_color"`
 		} `json:"dialogs"`
@@ -195,6 +198,7 @@ func (c *Client) SearchDialogs(ctx context.Context, department string, q string,
 			UserID:                r.UserID,
 			FullName:              r.FullName,
 			HasActiveSubscription: r.HasActiveSubscription,
+			Frozen:                r.Frozen,
 			Status:                r.Status,
 			StatusColor:           r.StatusColor,
 		})

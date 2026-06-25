@@ -4,8 +4,11 @@ type DialogItem struct {
 	UserID                int64   `json:"user_id"`
 	FullName              *string `json:"full_name,omitempty"`
 	HasActiveSubscription bool    `json:"has_active_subscription"`
-	Status                *string `json:"status,omitempty"`
-	StatusColor           *string `json:"status_color,omitempty"`
+	// Frozen — подписка пользователя заморожена (последняя строка Access по
+	// ботам 1/3 = freeze). Доступ снят, сервер убит до разморозки.
+	Frozen      bool    `json:"frozen"`
+	Status      *string `json:"status,omitempty"`
+	StatusColor *string `json:"status_color,omitempty"`
 }
 
 type TransferDialogResult struct {
@@ -43,6 +46,7 @@ type DialogSearchItem struct {
 	UserID                int64   `json:"user_id"`
 	FullName              *string `json:"full_name,omitempty"`
 	HasActiveSubscription bool    `json:"has_active_subscription"`
+	Frozen                bool    `json:"frozen"`
 	Status                *string `json:"status,omitempty"`
 	StatusColor           *string `json:"status_color,omitempty"`
 }

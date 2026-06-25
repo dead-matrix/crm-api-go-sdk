@@ -87,6 +87,57 @@ func (c *Client) ManageAccess(ctx context.Context, input AccessManageInput) (*Ac
 	}, nil
 }
 
+// FreezeAccessInput — вход для заморозки/разморозки подписки пользователя во
+// ВСЕХ поддержанных ботах (осн. + граббер).
+type FreezeAccessInput struct {
+	UserID         int64  `json:"user_id"`
+	IdempotencyKey string `json:"idempotency_key,omitempty"`
+}
+
+// FreezeAccessResult — результат POST /api/access/freeze|unfreeze. Changed=true,
+// если хотя бы у одного бота состояние реально изменилось (заморожен при freeze /
+// разморожен при unfreeze). Bots — пер-ботовая детализация (opaque, для логов/UI).
+type FreezeAccessResult struct {
+	UserID  int64
+	Changed bool
+	Bots    map[string]any
+}
+
+// FreezeAccess замораживает подписку пользователя: фиксирует доступы в CRM,
+// снимает доступ и убивает сервер бэкенда (как при завершении подписки).
+// Идемпотентно (idempotency_key).
+func (c *Client) FreezeAccess(ctx context.Context, input FreezeAccessInput) (*FreezeAccessResult, error) {
+	if input.UserID <= 0 {
+		return nil, &ValidationError{Message: "user_id must be a positive integer"}
+	}
+	var raw struct {
+		UserID int64          `json:"user_id"`
+		Frozen bool           `json:"frozen"`
+		Bots   map[string]any `json:"bots"`
+	}
+	if err := c.post(ctx, "/api/access/freeze", nil, true, input, &raw); err != nil {
+		return nil, err
+	}
+	return &FreezeAccessResult{UserID: raw.UserID, Changed: raw.Frozen, Bots: raw.Bots}, nil
+}
+
+// UnfreezeAccess размораживает подписку: восстанавливает доступы с сохранением
+// остатка времени по каждой фиче, снимает флаг заморозки. Сервер НЕ трогает.
+func (c *Client) UnfreezeAccess(ctx context.Context, input FreezeAccessInput) (*FreezeAccessResult, error) {
+	if input.UserID <= 0 {
+		return nil, &ValidationError{Message: "user_id must be a positive integer"}
+	}
+	var raw struct {
+		UserID   int64          `json:"user_id"`
+		Unfrozen bool           `json:"unfrozen"`
+		Bots     map[string]any `json:"bots"`
+	}
+	if err := c.post(ctx, "/api/access/unfreeze", nil, true, input, &raw); err != nil {
+		return nil, err
+	}
+	return &FreezeAccessResult{UserID: raw.UserID, Changed: raw.Unfrozen, Bots: raw.Bots}, nil
+}
+
 func (c *Client) SubscriptionsHistory(ctx context.Context, userID int64) (*SubscriptionsHistoryResult, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
