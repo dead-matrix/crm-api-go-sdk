@@ -9,6 +9,14 @@ type UserBotInfo struct {
 	Refer      *string    `json:"refer,omitempty"`
 	Access     any        `json:"access,omitempty"`
 	AccessEnd  *time.Time `json:"access_end,omitempty"`
+	// Subscription-freeze fields, populated when the latest access row for this
+	// bot is action="freeze". Frozen flags the state; FrozenAt is the moment of
+	// freezing; FrozenExpiry is the per-feature end-date snapshot {feature:
+	// end_iso} captured at freeze time (remaining days per feature =
+	// FrozenExpiry[feat] − FrozenAt, since the frozen period doesn't elapse).
+	Frozen       bool              `json:"frozen,omitempty"`
+	FrozenAt     *time.Time        `json:"frozen_at,omitempty"`
+	FrozenExpiry map[string]string `json:"frozen_expiry,omitempty"`
 }
 
 type GetUserResult struct {
