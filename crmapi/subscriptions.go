@@ -87,10 +87,12 @@ func (c *Client) ManageAccess(ctx context.Context, input AccessManageInput) (*Ac
 	}, nil
 }
 
-// FreezeAccessInput — вход для заморозки/разморозки подписки пользователя во
-// ВСЕХ поддержанных ботах (осн. + граббер).
+// FreezeAccessInput — вход для заморозки/разморозки подписки. Без BotID — во
+// ВСЕХ поддержанных ботах (осн. + граббер); с BotID — только этот бот
+// (1=основной, 3=граббер).
 type FreezeAccessInput struct {
 	UserID         int64  `json:"user_id"`
+	BotID          int64  `json:"bot_id,omitempty"`
 	IdempotencyKey string `json:"idempotency_key,omitempty"`
 }
 
