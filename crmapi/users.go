@@ -156,12 +156,15 @@ func (c *Client) GetUser(ctx context.Context, userID int64) (*GetUserResult, err
 		Username *string `json:"username"`
 		Status   *string `json:"status"`
 		BotsInfo []struct {
-			BotID      int64   `json:"bot_id"`
-			BotName    string  `json:"bot_name"`
-			Registered *string `json:"registered"`
-			Refer      *string `json:"refer"`
-			Access     any     `json:"access"`
-			AccessEnd  *string `json:"access_end"`
+			BotID        int64             `json:"bot_id"`
+			BotName      string            `json:"bot_name"`
+			Registered   *string           `json:"registered"`
+			Refer        *string           `json:"refer"`
+			Access       any               `json:"access"`
+			AccessEnd    *string           `json:"access_end"`
+			Frozen       *bool             `json:"frozen"`
+			FrozenAt     *string           `json:"frozen_at"`
+			FrozenExpiry map[string]string `json:"frozen_expiry"`
 		} `json:"bots_info"`
 	}
 
@@ -173,6 +176,7 @@ func (c *Client) GetUser(ctx context.Context, userID int64) (*GetUserResult, err
 	for _, item := range raw.BotsInfo {
 		var registered *time.Time
 		var accessEnd *time.Time
+		var frozenAt *time.Time
 
 		if item.Registered != nil {
 			registered = utils.ParseTime(*item.Registered)
@@ -180,14 +184,26 @@ func (c *Client) GetUser(ctx context.Context, userID int64) (*GetUserResult, err
 		if item.AccessEnd != nil {
 			accessEnd = utils.ParseTime(*item.AccessEnd)
 		}
+		// frozen_at — наивный ISO без зоны (как registered/access_end), поэтому
+		// тоже через utils.ParseTime, а не прямой *time.Time-анмаршал.
+		if item.FrozenAt != nil {
+			frozenAt = utils.ParseTime(*item.FrozenAt)
+		}
+		frozen := false
+		if item.Frozen != nil {
+			frozen = *item.Frozen
+		}
 
 		bots = append(bots, UserBotInfo{
-			BotID:      item.BotID,
-			BotName:    item.BotName,
-			Registered: registered,
-			Refer:      item.Refer,
-			Access:     item.Access,
-			AccessEnd:  accessEnd,
+			BotID:        item.BotID,
+			BotName:      item.BotName,
+			Registered:   registered,
+			Refer:        item.Refer,
+			Access:       item.Access,
+			AccessEnd:    accessEnd,
+			Frozen:       frozen,
+			FrozenAt:     frozenAt,
+			FrozenExpiry: item.FrozenExpiry,
 		})
 	}
 
