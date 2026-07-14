@@ -13,12 +13,14 @@ func (c *Client) ScriptsPrice(ctx context.Context, options []int64) ([]PriceMedi
 	if len(options) == 0 {
 		return nil, &ValidationError{Message: "options must contain at least one element"}
 	}
-	if len(options) > 5 {
-		return nil, &ValidationError{Message: "options must contain at most 5 elements"}
+	// Прайс включает опцию 5 (Нейро-чаттинг): элементы 0..5, до 6 выбранных.
+	// Обзоры (ScriptsTools ниже) остаются 0..4 — под опцию 5 нет ролика.
+	if len(options) > 6 {
+		return nil, &ValidationError{Message: "options must contain at most 6 elements"}
 	}
 	for _, opt := range options {
-		if opt < 0 || opt > 4 {
-			return nil, &ValidationError{Message: "each option must be between 0 and 4"}
+		if opt < 0 || opt > 5 {
+			return nil, &ValidationError{Message: "each option must be between 0 and 5"}
 		}
 	}
 
