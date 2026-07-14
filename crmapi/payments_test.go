@@ -165,7 +165,7 @@ func TestGetMonthlySalesEmpty(t *testing.T) {
 	defer server.Close()
 
 	client := mustNewClient(t, server.URL, server.Client())
-	res, err := client.GetMonthlySales(context.Background())
+	res, err := client.GetMonthlySales(context.Background(), 0)
 	if err != nil {
 		t.Fatalf("GetMonthlySales() error = %v", err)
 	}
@@ -216,7 +216,7 @@ func TestGetMonthlySalesReturnsCategorizedPayments(t *testing.T) {
 	defer server.Close()
 
 	client := mustNewClient(t, server.URL, server.Client())
-	res, err := client.GetMonthlySales(context.Background())
+	res, err := client.GetMonthlySales(context.Background(), 0)
 	if err != nil {
 		t.Fatalf("GetMonthlySales() error = %v", err)
 	}
