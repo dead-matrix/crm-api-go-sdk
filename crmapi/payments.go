@@ -311,13 +311,14 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64, limit int64, of
 	}, nil
 }
 
-// GetMonthlySales fetches all paid payments for the current calendar month
-// via GET /api/payments/sales.
+// GetMonthlySales fetches all paid payments for a calendar month via
+// GET /api/payments/sales. monthOffset selects the month: 0 = current,
+// 1 = previous, and so on (negatives are clamped to 0 by the caller).
 //
 // Each Sale has Category ("main" | "extra" | "other") and RepeatPurchase
 // per-category. Attribution to a specific seller is the consumer's
 // responsibility — the SDK just returns raw payments.
-func (c *Client) GetMonthlySales(ctx context.Context) (*MonthlySalesResult, error) {
+func (c *Client) GetMonthlySales(ctx context.Context, monthOffset int) (*MonthlySalesResult, error) {
 	var raw struct {
 		MonthStart *string `json:"month_start"`
 		Payments   []struct {
@@ -332,7 +333,11 @@ func (c *Client) GetMonthlySales(ctx context.Context) (*MonthlySalesResult, erro
 		} `json:"payments"`
 	}
 
-	if err := c.get(ctx, "/api/payments/sales", nil, true, &raw); err != nil {
+	var query map[string]string
+	if monthOffset > 0 {
+		query = map[string]string{"month_offset": strconv.Itoa(monthOffset)}
+	}
+	if err := c.get(ctx, "/api/payments/sales", query, true, &raw); err != nil {
 		return nil, err
 	}
 
