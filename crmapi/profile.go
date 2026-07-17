@@ -39,7 +39,8 @@ func (c *Client) ProfileStatistics(ctx context.Context, userID int64) (*ProfileS
 		Reactions         int64  `json:"reactions"`
 		Quota             *int64 `json:"quota"`
 		// Балансы токенов новой системы по функциям (леджер).
-		AiBalances map[string]int64 `json:"ai_balances"`
+		AiBalances       map[string]int64           `json:"ai_balances"`
+		AiBalancesDetail map[string]AiBalanceDetail `json:"ai_balances_detail"`
 	}
 
 	if err := c.get(ctx, "/api/profile/statistics", query, true, &raw); err != nil {
@@ -68,6 +69,7 @@ func (c *Client) ProfileStatistics(ctx context.Context, userID int64) (*ProfileS
 		Reactions:         raw.Reactions,
 		Quota:             raw.Quota,
 		AiBalances:        raw.AiBalances,
+		AiBalancesDetail:  raw.AiBalancesDetail,
 	}, nil
 }
 

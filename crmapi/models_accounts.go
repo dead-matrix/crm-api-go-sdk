@@ -59,6 +59,14 @@ type ProfileStatistics struct {
 	// Балансы токенов НОВОЙ системы по функциям леджера (comment/chatting/
 	// captcha_solving). Легаси Quota мертва после катовера токенов.
 	AiBalances map[string]int64 `json:"ai_balances,omitempty"`
+	// Разбивка баланса функции: остаток базовых пакетов подписки vs докупленных.
+	AiBalancesDetail map[string]AiBalanceDetail `json:"ai_balances_detail,omitempty"`
+}
+
+type AiBalanceDetail struct {
+	Total   int64 `json:"total"`
+	Base    int64 `json:"base"`
+	Package int64 `json:"package"`
 }
 
 type PosterAccount struct {
