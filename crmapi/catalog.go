@@ -6,9 +6,10 @@ func (c *Client) ProductsActive(ctx context.Context) (map[string]CategoryBucket,
 	var raw map[string]struct {
 		Title    string `json:"title"`
 		Products map[string]struct {
-			Title      string `json:"title"`
-			PriceMinor int64  `json:"price_minor"`
-			PriceUSD   *int64 `json:"price_usd"`
+			Title       string `json:"title"`
+			PriceMinor  int64  `json:"price_minor"`
+			PriceUSD    *int64 `json:"price_usd"`
+			IsTokenPack bool   `json:"is_token_pack"`
 		} `json:"products"`
 	}
 
@@ -21,9 +22,10 @@ func (c *Client) ProductsActive(ctx context.Context) (map[string]CategoryBucket,
 		products := make(map[string]ProductEntry, len(bucket.Products))
 		for pid, p := range bucket.Products {
 			products[pid] = ProductEntry{
-				Title:      p.Title,
-				PriceMinor: p.PriceMinor,
-				PriceUSD:   p.PriceUSD,
+				Title:       p.Title,
+				PriceMinor:  p.PriceMinor,
+				PriceUSD:    p.PriceUSD,
+				IsTokenPack: p.IsTokenPack,
 			}
 		}
 
