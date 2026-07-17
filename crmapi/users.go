@@ -278,3 +278,40 @@ func (c *Client) ExtendAILimit(ctx context.Context, userID int64, millions int64
 		AILimit:         raw.AILimit,
 	}, nil
 }
+
+// GrantAITokens начисляет пакет токенов НОВОЙ системы: грант в AI-леджер под
+// функцию + легаси-инкремент ai_limit (эквивалент покупки токен-тарифа).
+// Допустимые пакеты валидирует CRM по активным токен-товарам каталога —
+// клиент здесь проверяет только позитивность/непустоту, чтобы новый тариф
+// не требовал правок SDK. ref — idempotency-ключ вызова (uuid): повтор с тем
+// же ref безопасен и возвращает Granted=false.
+func (c *Client) GrantAITokens(ctx context.Context, userID int64, tokens int64, function, ref string, botID int64) (*GrantAITokensResult, error) {
+	if userID <= 0 {
+		return nil, &ValidationError{Message: "user_id must be a positive integer"}
+	}
+	if tokens <= 0 {
+		return nil, &ValidationError{Message: "tokens must be a positive integer"}
+	}
+	if function == "" {
+		return nil, &ValidationError{Message: "function must not be empty"}
+	}
+	if ref == "" {
+		return nil, &ValidationError{Message: "ref must not be empty"}
+	}
+	if botID <= 0 {
+		botID = 1
+	}
+
+	query := map[string]string{
+		"tokens":   fmt.Sprintf("%d", tokens),
+		"function": function,
+		"ref":      ref,
+		"bot_id":   fmt.Sprintf("%d", botID),
+	}
+
+	var raw GrantAITokensResult
+	if err := c.post(ctx, fmt.Sprintf("/api/users/%d/ai-tokens/grant", userID), query, true, nil, &raw); err != nil {
+		return nil, err
+	}
+	return &raw, nil
+}

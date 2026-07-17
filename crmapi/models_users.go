@@ -93,3 +93,15 @@ type ExtendAILimitResult struct {
 	PreviousAILimit int64 `json:"previous_ai_limit"`
 	AILimit         int64 `json:"ai_limit"`
 }
+
+// GrantAITokensResult — результат начисления пакета токенов новой системы
+// (леджер + легаси ai_limit). Granted=false — повтор с тем же ref (идемпотентный
+// no-op), previous/ai_limit тогда null у CRM и остаются нулями здесь.
+type GrantAITokensResult struct {
+	Granted         bool   `json:"granted"`
+	Function        string `json:"function"`
+	Tokens          int64  `json:"tokens"`
+	PreviousAILimit int64  `json:"previous_ai_limit"`
+	AILimit         int64  `json:"ai_limit"`
+	BalanceTokens   int64  `json:"balance_tokens"`
+}
