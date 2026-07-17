@@ -101,6 +101,10 @@ type InvoiceDraftInput struct {
 	Months          int64          `json:"months"`
 	Provider        string         `json:"provider"`
 	PaymentMethod   *PaymentMethod `json:"payment_method,omitempty"`
+	// Функция AI-леджера для токен-пакетов в корзине. CRM требует её, когда
+	// среди товаров есть токен-пак, и валидирует по своим KNOWN_FUNCTIONS —
+	// SDK набор не дублирует.
+	AiFunction *string `json:"ai_function,omitempty"`
 }
 
 func (in InvoiceDraftInput) Validate() error {
