@@ -56,6 +56,9 @@ type ProfileStatistics struct {
 	Views             int64  `json:"views"`
 	Reactions         int64  `json:"reactions"`
 	Quota             *int64 `json:"quota,omitempty"`
+	// Балансы токенов НОВОЙ системы по функциям леджера (comment/chatting/
+	// captcha_solving). Легаси Quota мертва после катовера токенов.
+	AiBalances map[string]int64 `json:"ai_balances,omitempty"`
 }
 
 type PosterAccount struct {
