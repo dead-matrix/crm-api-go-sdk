@@ -165,6 +165,7 @@ func (c *Client) GetUser(ctx context.Context, userID int64) (*GetUserResult, err
 			Frozen       *bool             `json:"frozen"`
 			FrozenAt     *string           `json:"frozen_at"`
 			FrozenExpiry map[string]string `json:"frozen_expiry"`
+			AccessExpiry map[string]string `json:"access_expiry"`
 		} `json:"bots_info"`
 	}
 
@@ -204,6 +205,7 @@ func (c *Client) GetUser(ctx context.Context, userID int64) (*GetUserResult, err
 			Frozen:       frozen,
 			FrozenAt:     frozenAt,
 			FrozenExpiry: item.FrozenExpiry,
+			AccessExpiry: item.AccessExpiry,
 		})
 	}
 

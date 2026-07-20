@@ -9,6 +9,10 @@ type UserBotInfo struct {
 	Refer      *string    `json:"refer,omitempty"`
 	Access     any        `json:"access,omitempty"`
 	AccessEnd  *time.Time `json:"access_end,omitempty"`
+	// AccessExpiry — пофичевые сроки живых фич {ключ: end_iso}: у каждого
+	// модуля свой конец (в отличие от общего AccessEnd = максимума). Пусто
+	// для legacy-строк без карты.
+	AccessExpiry map[string]string `json:"access_expiry,omitempty"`
 	// Subscription-freeze fields, populated when the latest access row for this
 	// bot is action="freeze". Frozen flags the state; FrozenAt is the moment of
 	// freezing; FrozenExpiry is the per-feature end-date snapshot {feature:

@@ -23,6 +23,10 @@ type AddAccessInput struct {
 	AccessEnd  *time.Time `json:"access_end,omitempty"`
 	PaymentID  *int64     `json:"payment_id,omitempty"`
 	Ref        *string    `json:"ref,omitempty"`
+	// Days — частичное снятие: при revoke/refund с Days>0 CRM отнимает N дней
+	// у выданных фич (mode=subtract) вместо полного снятия. Игнорируется на
+	// add/extend.
+	Days *int64 `json:"days,omitempty"`
 }
 
 func (in AddAccessInput) Validate() error {
@@ -45,6 +49,9 @@ func (in AddAccessInput) Validate() error {
 	}
 	if in.Ref != nil && len(*in.Ref) > 2048 {
 		return &ValidationError{Message: "ref must be at most 2048 characters"}
+	}
+	if in.Days != nil && (*in.Days < 1 || *in.Days > 3650) {
+		return &ValidationError{Message: "days must be between 1 and 3650"}
 	}
 
 	return nil
