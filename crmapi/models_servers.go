@@ -16,3 +16,11 @@ type ServerStatusResult struct {
 	Bound bool `json:"bound"`
 	Up    bool `json:"up"`
 }
+
+// ServerVersionResult carries the user's bot worker version reported by the
+// worker's own GET /version/ endpoint. Version is nil when the worker is
+// down, unreachable or has no server at all — the CRM answers fast (its
+// worker probe runs on a short timeout) instead of failing the request.
+type ServerVersionResult struct {
+	Version *string `json:"version"`
+}
