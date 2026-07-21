@@ -12,6 +12,9 @@ const (
 	ActionExtend ActionType = "extend"
 	ActionRevoke ActionType = "revoke"
 	ActionRefund ActionType = "refund"
+	// ActionCustom - кастомная правка сроков: у каждой фичи свой сдвиг конца
+	// на ±дни (см. AddAccessInput.Deltas), CRM применяет mode=adjust.
+	ActionCustom ActionType = "custom"
 )
 
 type AddAccessInput struct {
@@ -27,6 +30,10 @@ type AddAccessInput struct {
 	// у выданных фич (mode=subtract) вместо полного снятия. Игнорируется на
 	// add/extend.
 	Days *int64 `json:"days,omitempty"`
+	// Deltas - кастомная правка (Action=custom): у каждой фичи свой сдвиг конца
+	// на ±дни {ключ: дни} (mode=adjust). Минус ограничен полом now+1день на
+	// стороне CRM. Игнорируется на прочих действиях.
+	Deltas map[string]int64 `json:"deltas,omitempty"`
 }
 
 func (in AddAccessInput) Validate() error {
@@ -39,9 +46,20 @@ func (in AddAccessInput) Validate() error {
 
 	action := ActionType(strings.ToLower(strings.TrimSpace(string(in.Action))))
 	switch action {
-	case ActionAdd, ActionExtend, ActionRevoke, ActionRefund:
+	case ActionAdd, ActionExtend, ActionRevoke, ActionRefund, ActionCustom:
 	default:
-		return &ValidationError{Message: "action must be one of: add, extend, revoke, refund"}
+		return &ValidationError{Message: "action must be one of: add, extend, revoke, refund, custom"}
+	}
+	if action == ActionCustom && len(in.Deltas) == 0 {
+		return &ValidationError{Message: "custom action requires a non-empty deltas map"}
+	}
+	for key, n := range in.Deltas {
+		if strings.TrimSpace(key) == "" {
+			return &ValidationError{Message: "deltas keys must be non-empty feature names"}
+		}
+		if n < -3650 || n > 3650 {
+			return &ValidationError{Message: "deltas values must be between -3650 and 3650"}
+		}
 	}
 
 	if in.PaymentID != nil && *in.PaymentID <= 0 {
