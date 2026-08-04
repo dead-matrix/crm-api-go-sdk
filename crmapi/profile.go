@@ -26,6 +26,8 @@ func (c *Client) ProfileStatistics(ctx context.Context, userID int64) (*ProfileS
 		AllTagged         int64  `json:"all_tagged"`
 		AllViews          int64  `json:"all_views"`
 		AllReactions      int64  `json:"all_reactions"`
+		AllChatting       int64  `json:"all_chatting"`
+		AllLikes          int64  `json:"all_likes"`
 		Tasks             int64  `json:"tasks"`
 		Valid             int64  `json:"valid"`
 		Work              int64  `json:"work"`
@@ -37,6 +39,8 @@ func (c *Client) ProfileStatistics(ctx context.Context, userID int64) (*ProfileS
 		Tagged            int64  `json:"tagged"`
 		Views             int64  `json:"views"`
 		Reactions         int64  `json:"reactions"`
+		Chatting          int64  `json:"chatting"`
+		Likes             int64  `json:"likes"`
 		Quota             *int64 `json:"quota"`
 		// Балансы токенов новой системы по функциям (леджер).
 		AiBalances       map[string]int64           `json:"ai_balances"`
@@ -56,6 +60,8 @@ func (c *Client) ProfileStatistics(ctx context.Context, userID int64) (*ProfileS
 		AllTagged:         raw.AllTagged,
 		AllViews:          raw.AllViews,
 		AllReactions:      raw.AllReactions,
+		AllChatting:       raw.AllChatting,
+		AllLikes:          raw.AllLikes,
 		Tasks:             raw.Tasks,
 		Valid:             raw.Valid,
 		Work:              raw.Work,
@@ -67,6 +73,8 @@ func (c *Client) ProfileStatistics(ctx context.Context, userID int64) (*ProfileS
 		Tagged:            raw.Tagged,
 		Views:             raw.Views,
 		Reactions:         raw.Reactions,
+		Chatting:          raw.Chatting,
+		Likes:             raw.Likes,
 		Quota:             raw.Quota,
 		AiBalances:        raw.AiBalances,
 		AiBalancesDetail:  raw.AiBalancesDetail,
