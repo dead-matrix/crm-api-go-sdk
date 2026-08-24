@@ -58,7 +58,7 @@ func TestRealAPI_Smoke(t *testing.T) {
 	})
 
 	t.Run("accountsList", func(t *testing.T) {
-		accounts, err := client.AccountsList(ctx, userID, false, 0)
+		accounts, err := client.AccountsList(ctx, userID, false, false, 0)
 		if err != nil {
 			t.Fatalf("AccountsList() error: %v", err)
 		}
@@ -68,7 +68,7 @@ func TestRealAPI_Smoke(t *testing.T) {
 	})
 
 	t.Run("accountsCount", func(t *testing.T) {
-		if _, err := client.AccountsCount(ctx, userID, true); err != nil {
+		if _, err := client.AccountsCount(ctx, userID, false, true); err != nil {
 			t.Fatalf("AccountsCount() error: %v", err)
 		}
 	})

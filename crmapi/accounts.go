@@ -6,10 +6,11 @@ import (
 )
 
 // AccountsCount возвращает число аккаунтов пользователя (дешёвый COUNT на стороне
-// CRM). Вызывается ПЕРЕД AccountsList: если аккаунтов слишком много, потребитель
-// (мессенджер) предлагает выбрать период вместо выгрузки всего разом. includeRemoved
-// повторяет семантику AccountsList (учитывать ли удалённые в подсчёте).
-func (c *Client) AccountsCount(ctx context.Context, userID int64, includeRemoved bool) (int64, error) {
+// CRM). Мессенджер зовёт его для удалённых (removedOnly=true) ПЕРЕД их загрузкой:
+// если удалённых слишком много, предлагается выбрать период вместо выгрузки всего
+// разом. includeRemoved учитывать ли удалённые в общем подсчёте; removedOnly=true
+// считает ТОЛЬКО удалённые (перекрывает includeRemoved).
+func (c *Client) AccountsCount(ctx context.Context, userID int64, includeRemoved bool, removedOnly bool) (int64, error) {
 	if userID <= 0 {
 		return 0, &ValidationError{Message: "user_id must be a positive integer"}
 	}
@@ -24,6 +25,9 @@ func (c *Client) AccountsCount(ctx context.Context, userID int64, includeRemoved
 	if includeRemoved {
 		query["include_removed"] = "true"
 	}
+	if removedOnly {
+		query["removed_only"] = "true"
+	}
 
 	if err := c.get(ctx, "/api/accounts/count", query, true, &raw); err != nil {
 		return 0, err
@@ -33,11 +37,12 @@ func (c *Client) AccountsCount(ctx context.Context, userID int64, includeRemoved
 
 // AccountsList возвращает аккаунты пользователя. includeRemoved=true просит
 // CRM отдать и удалённые строки (поле Removed=true у них); false сохраняет
-// прежнее поведение — только живые аккаунты. days>0 ограничивает выборку
-// аккаунтами, впервые загруженными за последние N дней (по first_load) — для
-// «тяжёлых» пользователей, чтобы не тянуть десятки тысяч строк разом; days=0 —
-// без ограничения (прежнее поведение).
-func (c *Client) AccountsList(ctx context.Context, userID int64, includeRemoved bool, days int) ([]AccountItem, error) {
+// прежнее поведение - только живые аккаунты. removedOnly=true отдаёт ТОЛЬКО
+// удалённые (перекрывает includeRemoved) - мессенджер грузит их отдельным
+// запросом по галочке «Показывать удаленные». days>0 ограничивает выборку
+// аккаунтами, впервые загруженными за последние N дней (по first_load) - для
+// удалённых у «тяжёлых» пользователей; days=0 - без ограничения.
+func (c *Client) AccountsList(ctx context.Context, userID int64, includeRemoved bool, removedOnly bool, days int) ([]AccountItem, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
 	}
@@ -86,6 +91,9 @@ func (c *Client) AccountsList(ctx context.Context, userID int64, includeRemoved 
 	}
 	if includeRemoved {
 		query["include_removed"] = "true"
+	}
+	if removedOnly {
+		query["removed_only"] = "true"
 	}
 	if days > 0 {
 		query["days"] = fmt.Sprintf("%d", days)

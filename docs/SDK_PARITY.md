@@ -54,8 +54,8 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 ### accounts
 | Endpoint | Python | Go | Request | Response |
 |---|---|---|---|---|
-| `GET /accounts/list?user_id=&include_removed=&days=` | `accounts_list(user_id, include_removed, days)` | `AccountsList(ctx, userID, includeRemoved, days)` | — | `[]AccountItem` (`DayTotal` вложенный; `first_load` ISO-строка, `removed`); `days>0` ограничивает период по `first_load` |
-| `GET /accounts/count?user_id=&include_removed=` | `accounts_count(user_id, include_removed)` | `AccountsCount(ctx, userID, includeRemoved)` | — | `{total}` (дешёвый COUNT перед загрузкой списка) |
+| `GET /accounts/list?user_id=&include_removed=&removed_only=&days=` | `accounts_list(user_id, include_removed, days, removed_only)` | `AccountsList(ctx, userID, includeRemoved, removedOnly, days)` | — | `[]AccountItem` (`DayTotal` вложенный; `first_load` ISO-строка, `removed`); `removed_only` только удалённые, `days>0` ограничивает период по `first_load` |
+| `GET /accounts/count?user_id=&include_removed=&removed_only=` | `accounts_count(user_id, include_removed, removed_only)` | `AccountsCount(ctx, userID, includeRemoved, removedOnly)` | — | `{total}` (дешёвый COUNT удалённых перед их загрузкой) |
 
 ### activation
 | Endpoint | Python | Go | Request | Response |
