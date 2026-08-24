@@ -54,7 +54,8 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 ### accounts
 | Endpoint | Python | Go | Request | Response |
 |---|---|---|---|---|
-| `GET /accounts/list?user_id=&include_removed=` | `accounts_list(user_id, include_removed)` | `AccountsList(ctx, userID, includeRemoved)` | — | `[]AccountItem` (`DayTotal` вложенный; `first_load` ISO-строка, `removed`) |
+| `GET /accounts/list?user_id=&include_removed=&days=` | `accounts_list(user_id, include_removed, days)` | `AccountsList(ctx, userID, includeRemoved, days)` | — | `[]AccountItem` (`DayTotal` вложенный; `first_load` ISO-строка, `removed`); `days>0` ограничивает период по `first_load` |
+| `GET /accounts/count?user_id=&include_removed=` | `accounts_count(user_id, include_removed)` | `AccountsCount(ctx, userID, includeRemoved)` | — | `{total}` (дешёвый COUNT перед загрузкой списка) |
 
 ### activation
 | Endpoint | Python | Go | Request | Response |

@@ -58,12 +58,18 @@ func TestRealAPI_Smoke(t *testing.T) {
 	})
 
 	t.Run("accountsList", func(t *testing.T) {
-		accounts, err := client.AccountsList(ctx, userID, false)
+		accounts, err := client.AccountsList(ctx, userID, false, 0)
 		if err != nil {
 			t.Fatalf("AccountsList() error: %v", err)
 		}
 		if accounts == nil {
 			t.Fatalf("AccountsList() returned nil slice")
+		}
+	})
+
+	t.Run("accountsCount", func(t *testing.T) {
+		if _, err := client.AccountsCount(ctx, userID, true); err != nil {
+			t.Fatalf("AccountsCount() error: %v", err)
 		}
 	})
 

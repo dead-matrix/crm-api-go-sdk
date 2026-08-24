@@ -5,10 +5,39 @@ import (
 	"fmt"
 )
 
+// AccountsCount возвращает число аккаунтов пользователя (дешёвый COUNT на стороне
+// CRM). Вызывается ПЕРЕД AccountsList: если аккаунтов слишком много, потребитель
+// (мессенджер) предлагает выбрать период вместо выгрузки всего разом. includeRemoved
+// повторяет семантику AccountsList (учитывать ли удалённые в подсчёте).
+func (c *Client) AccountsCount(ctx context.Context, userID int64, includeRemoved bool) (int64, error) {
+	if userID <= 0 {
+		return 0, &ValidationError{Message: "user_id must be a positive integer"}
+	}
+
+	var raw struct {
+		Total int64 `json:"total"`
+	}
+
+	query := map[string]string{
+		"user_id": fmt.Sprintf("%d", userID),
+	}
+	if includeRemoved {
+		query["include_removed"] = "true"
+	}
+
+	if err := c.get(ctx, "/api/accounts/count", query, true, &raw); err != nil {
+		return 0, err
+	}
+	return raw.Total, nil
+}
+
 // AccountsList возвращает аккаунты пользователя. includeRemoved=true просит
 // CRM отдать и удалённые строки (поле Removed=true у них); false сохраняет
-// прежнее поведение — только живые аккаунты.
-func (c *Client) AccountsList(ctx context.Context, userID int64, includeRemoved bool) ([]AccountItem, error) {
+// прежнее поведение — только живые аккаунты. days>0 ограничивает выборку
+// аккаунтами, впервые загруженными за последние N дней (по first_load) — для
+// «тяжёлых» пользователей, чтобы не тянуть десятки тысяч строк разом; days=0 —
+// без ограничения (прежнее поведение).
+func (c *Client) AccountsList(ctx context.Context, userID int64, includeRemoved bool, days int) ([]AccountItem, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
 	}
@@ -57,6 +86,9 @@ func (c *Client) AccountsList(ctx context.Context, userID int64, includeRemoved 
 	}
 	if includeRemoved {
 		query["include_removed"] = "true"
+	}
+	if days > 0 {
+		query["days"] = fmt.Sprintf("%d", days)
 	}
 
 	if err := c.get(ctx, "/api/accounts/list", query, true, &raw); err != nil {

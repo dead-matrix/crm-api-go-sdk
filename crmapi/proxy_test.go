@@ -77,7 +77,7 @@ func TestClient_AccountsList_ProxyField(t *testing.T) {
 	defer server.Close()
 
 	client := mustNewClient(t, server.URL, server.Client())
-	items, err := client.AccountsList(context.Background(), 100, false)
+	items, err := client.AccountsList(context.Background(), 100, false, 0)
 	if err != nil {
 		t.Fatalf("AccountsList error: %v", err)
 	}
