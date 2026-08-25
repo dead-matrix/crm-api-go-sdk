@@ -96,6 +96,7 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 | `GET /payments/invoice/{uuid}` | `get_invoice_info(uuid)` | `GetInvoiceInfo(ctx, uuid)` | — | `InvoiceInfoResult` |
 | `GET /payments?user_id=&limit=&offset=` | `get_payments(user_id?, limit, offset)` | `GetPayments(ctx, userID*, limit, offset)` | — | `PaymentsListResult { limit, offset, count, items: []PaymentHistoryItem }` |
 | `GET /payments/sales` | `get_monthly_sales()` | `GetMonthlySales(ctx)` | — | `MonthlySalesResult { month_start, payments: []Sale }` |
+| `POST /payments/purchase-summary` | — | `PurchaseSummaries(ctx, userIDs)` | `{ user_ids: []int64 }` (≤5000) | `map[int64]PurchaseSummary { first_paid_at, last_paid_at, payments_count, total_minor }` — каждый запрошенный id присутствует; нули = не покупал |
 | `GET /payments/confirm/{uuid}` | `confirm_payment(uuid)` | `ConfirmPayment(ctx, uuid)` | — | `ConfirmPaymentResult { uuid, status }` |
 | `POST /payments/refund/{uuid}` | `refund_payment(uuid, data?)` | `RefundPayment(ctx, uuid, input*)` | `RefundInput { reason?, amount_minor? }` | `RefundResult { uuid, provider, allowed, message, status? }` |
 

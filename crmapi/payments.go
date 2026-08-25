@@ -410,6 +410,66 @@ func (c *Client) LastPurchaseDates(ctx context.Context, userIDs []int64) (map[in
 	return out, nil
 }
 
+// PurchaseSummary describes a client's PAID purchases in aggregate. Zero
+// PaymentsCount (and nil dates) means the client has never bought anything.
+type PurchaseSummary struct {
+	FirstPaidAt   *time.Time
+	LastPaidAt    *time.Time
+	PaymentsCount int64
+	TotalMinor    int64
+}
+
+// EverPurchased reports whether the client has at least one paid payment.
+func (s PurchaseSummary) EverPurchased() bool { return s.PaymentsCount > 0 }
+
+// PurchaseSummaries returns, for each given user (Telegram / external id), the
+// aggregate of their PAID payments: first/last paid date, count and total in
+// minor units. EVERY requested id is present in the result map (zero value =
+// never purchased). Unlike LastPurchaseDates it also yields the FIRST payment,
+// which the bulk dialog export uses to cut each conversation at the moment of
+// the sale. POST /api/payments/purchase-summary, body {"user_ids": [...]}.
+func (c *Client) PurchaseSummaries(ctx context.Context, userIDs []int64) (map[int64]PurchaseSummary, error) {
+	out := make(map[int64]PurchaseSummary, len(userIDs))
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+	body := struct {
+		UserIDs []int64 `json:"user_ids"`
+	}{UserIDs: userIDs}
+
+	// data is {"<user_id>": {first_paid_at, last_paid_at, payments_count, total_minor}}.
+	var raw map[string]struct {
+		FirstPaidAt   *string `json:"first_paid_at"`
+		LastPaidAt    *string `json:"last_paid_at"`
+		PaymentsCount int64   `json:"payments_count"`
+		TotalMinor    int64   `json:"total_minor"`
+	}
+	if err := c.post(ctx, "/api/payments/purchase-summary", nil, true, body, &raw); err != nil {
+		return nil, err
+	}
+	for k, v := range raw {
+		id, perr := strconv.ParseInt(k, 10, 64)
+		if perr != nil {
+			continue
+		}
+		item := PurchaseSummary{PaymentsCount: v.PaymentsCount, TotalMinor: v.TotalMinor}
+		if v.FirstPaidAt != nil && *v.FirstPaidAt != "" {
+			item.FirstPaidAt = utils.ParseTime(*v.FirstPaidAt)
+		}
+		if v.LastPaidAt != nil && *v.LastPaidAt != "" {
+			item.LastPaidAt = utils.ParseTime(*v.LastPaidAt)
+		}
+		out[id] = item
+	}
+	// Defensive: never leave a caller-requested id absent from the map.
+	for _, id := range userIDs {
+		if _, ok := out[id]; !ok {
+			out[id] = PurchaseSummary{}
+		}
+	}
+	return out, nil
+}
+
 func (c *Client) ConfirmPayment(ctx context.Context, uuid string) (*ConfirmPaymentResult, error) {
 	if uuid == "" {
 		return nil, &ValidationError{Message: "uuid must not be empty"}
