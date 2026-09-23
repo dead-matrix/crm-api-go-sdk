@@ -86,6 +86,8 @@ func (c *Client) ListUsers(ctx context.Context, botID int64, limit int64, offset
 			DateReg    *string `json:"date_reg"`
 			Refer      *string `json:"refer"`
 			Restricted bool    `json:"restricted"`
+			HasActive  bool    `json:"has_active_subscription"`
+			Frozen     bool    `json:"frozen"`
 		} `json:"items"`
 	}
 
@@ -106,6 +108,9 @@ func (c *Client) ListUsers(ctx context.Context, botID int64, limit int64, offset
 			DateReg:    dateReg,
 			Refer:      it.Refer,
 			Restricted: it.Restricted,
+
+			HasActiveSubscription: it.HasActive,
+			Frozen:                it.Frozen,
 		})
 	}
 
@@ -151,11 +156,13 @@ func (c *Client) GetUser(ctx context.Context, userID int64) (*GetUserResult, err
 	}
 
 	var raw struct {
-		UserID   int64   `json:"user_id"`
-		FullName *string `json:"full_name"`
-		Username *string `json:"username"`
-		Status   *string `json:"status"`
-		BotsInfo []struct {
+		UserID    int64   `json:"user_id"`
+		FullName  *string `json:"full_name"`
+		Username  *string `json:"username"`
+		Status    *string `json:"status"`
+		HasActive bool    `json:"has_active_subscription"`
+		Frozen    bool    `json:"frozen"`
+		BotsInfo  []struct {
 			BotID        int64             `json:"bot_id"`
 			BotName      string            `json:"bot_name"`
 			Registered   *string           `json:"registered"`
@@ -214,7 +221,10 @@ func (c *Client) GetUser(ctx context.Context, userID int64) (*GetUserResult, err
 		FullName: raw.FullName,
 		Username: raw.Username,
 		Status:   raw.Status,
-		BotsInfo: bots,
+
+		HasActiveSubscription: raw.HasActive,
+		Frozen:                raw.Frozen,
+		BotsInfo:              bots,
 	}, nil
 }
 

@@ -226,6 +226,37 @@ func (c *Client) SubscriptionsHistory(ctx context.Context, userID int64) (*Subsc
 	}, nil
 }
 
+// SubscriptionState возвращает признаки подписки списка пользователей одним
+// запросом (POST /api/users/subscription-state). CRM схлопывает дубли, сохраняя
+// порядок первого появления; неизвестные id отдаются как false/false.
+// Допустимо от 1 до SubscriptionStateMaxIDs положительных id.
+func (c *Client) SubscriptionState(ctx context.Context, userIDs []int64) ([]SubscriptionStateItem, error) {
+	if len(userIDs) == 0 {
+		return nil, &ValidationError{Message: "user_ids must not be empty"}
+	}
+	if len(userIDs) > SubscriptionStateMaxIDs {
+		return nil, &ValidationError{Message: fmt.Sprintf("user_ids must contain at most %d items", SubscriptionStateMaxIDs)}
+	}
+	for _, id := range userIDs {
+		if id <= 0 {
+			return nil, &ValidationError{Message: "user_ids must contain only positive integers"}
+		}
+	}
+
+	body := struct {
+		UserIDs []int64 `json:"user_ids"`
+	}{UserIDs: userIDs}
+
+	var raw []SubscriptionStateItem
+	if err := c.post(ctx, "/api/users/subscription-state", nil, true, body, &raw); err != nil {
+		return nil, err
+	}
+	if raw == nil {
+		raw = []SubscriptionStateItem{}
+	}
+	return raw, nil
+}
+
 func (c *Client) AccessDefinitions(ctx context.Context) (*AccessDefinitionsResult, error) {
 	var raw struct {
 		Main   map[string]string `json:"main"`

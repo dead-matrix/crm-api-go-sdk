@@ -157,3 +157,15 @@ type AccessManageResult struct {
 	AccessEnd   *time.Time `json:"access_end,omitempty"`
 	CrmAccessID *int64     `json:"crm_access_id,omitempty"`
 }
+
+// SubscriptionStateMaxIDs - лимит CRM на число user_id в одном вызове
+// SubscriptionState (POST /api/users/subscription-state).
+const SubscriptionStateMaxIDs = 5000
+
+// SubscriptionStateItem - признаки подписки одного пользователя по всем ботам.
+// Неизвестный CRM user_id приходит как false/false.
+type SubscriptionStateItem struct {
+	UserID                int64 `json:"user_id"`
+	HasActiveSubscription bool  `json:"has_active_subscription"`
+	Frozen                bool  `json:"frozen"`
+}

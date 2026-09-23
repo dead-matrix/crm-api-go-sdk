@@ -24,11 +24,15 @@ type UserBotInfo struct {
 }
 
 type GetUserResult struct {
-	UserID   int64         `json:"user_id"`
-	FullName *string       `json:"full_name,omitempty"`
-	Username *string       `json:"username,omitempty"`
-	Status   *string       `json:"status,omitempty"`
-	BotsInfo []UserBotInfo `json:"bots_info"`
+	UserID   int64   `json:"user_id"`
+	FullName *string `json:"full_name,omitempty"`
+	Username *string `json:"username,omitempty"`
+	Status   *string `json:"status,omitempty"`
+	// HasActiveSubscription / Frozen - сводные признаки подписки по всем ботам
+	// (тот же предикат CRM, что у SubscriptionState); BotsInfo - детализация.
+	HasActiveSubscription bool          `json:"has_active_subscription"`
+	Frozen                bool          `json:"frozen"`
+	BotsInfo              []UserBotInfo `json:"bots_info"`
 }
 
 // CreateUserResult is the result of POST /api/users (idempotent).
@@ -61,6 +65,10 @@ type ListUserItem struct {
 	DateReg    *time.Time `json:"date_reg,omitempty"`
 	Refer      *string    `json:"refer,omitempty"`
 	Restricted bool       `json:"restricted"`
+	// HasActiveSubscription / Frozen - признаки подписки уровня пользователя
+	// по всем ботам, а не только по BotID из запроса.
+	HasActiveSubscription bool `json:"has_active_subscription"`
+	Frozen                bool `json:"frozen"`
 }
 
 // ListUsersResult is the response of GET /api/users?bot_id=...&limit=...&offset=...
