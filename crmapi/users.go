@@ -296,7 +296,9 @@ func (c *Client) ExtendAILimit(ctx context.Context, userID int64, millions int64
 // Допустимые пакеты валидирует CRM по активным токен-товарам каталога —
 // клиент здесь проверяет только позитивность/непустоту, чтобы новый тариф
 // не требовал правок SDK. ref — idempotency-ключ вызова (uuid): повтор с тем
-// же ref безопасен и возвращает Granted=false.
+// же ref безопасен и возвращает Granted=false. botID обязателен и должен быть
+// положительным: значения по умолчанию нет, при botID <= 0 возвращается
+// ConfigError без обращения к CRM.
 func (c *Client) GrantAITokens(ctx context.Context, userID int64, tokens int64, function, ref string, botID int64) (*GrantAITokensResult, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
@@ -311,7 +313,7 @@ func (c *Client) GrantAITokens(ctx context.Context, userID int64, tokens int64, 
 		return nil, &ValidationError{Message: "ref must not be empty"}
 	}
 	if botID <= 0 {
-		botID = 1
+		return nil, &ConfigError{Message: "bot_id must be a positive integer"}
 	}
 
 	query := map[string]string{

@@ -158,7 +158,7 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 |---|---|---|---|---|
 | `POST /access/add` | `add_access(input)` | `AddAccess(ctx, input)` | `AddAccessInput` (опциональные поля опускаются — `exclude_none` / `omitempty`) | `AddAccessResult` |
 | `GET /users/{user_id}/subscriptions/history` | `subscriptions_history(user_id)` | `SubscriptionsHistory(ctx, userID)` | — | `SubscriptionsHistoryResult { user_id, history: []AccessHistoryItem }` |
-| `GET /access/definitions` | `access_definitions()` | `AccessDefinitions(ctx)` | — | `AccessDefinitionsResult { main, poster }` |
+| `GET /access/definitions` | `access_definitions()` | `AccessDefinitions(ctx)` | — | `AccessDefinitionsResult { main, poster, categories }` |
 | `POST /subscriptions/transfer-link?user_id=&bot_id=` | `subscriptions_transfer_link(user_id, bot_id)` | `SubscriptionsTransferLink(ctx, userID, botID)` | — | `TransferLinkResult` |
 | `POST /subscriptions/transfer/redeem` | `subscriptions_transfer_redeem(data)` | `SubscriptionsTransferRedeem(ctx, input)` | `TransferRedeemInput` | `TransferRedeemResult` |
 

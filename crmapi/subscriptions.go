@@ -258,10 +258,7 @@ func (c *Client) SubscriptionState(ctx context.Context, userIDs []int64) ([]Subs
 }
 
 func (c *Client) AccessDefinitions(ctx context.Context) (*AccessDefinitionsResult, error) {
-	var raw struct {
-		Main   map[string]string `json:"main"`
-		Poster map[string]string `json:"poster"`
-	}
+	var raw AccessDefinitionsResult
 
 	if err := c.get(ctx, "/api/access/definitions", nil, true, &raw); err != nil {
 		return nil, err
@@ -273,11 +270,16 @@ func (c *Client) AccessDefinitions(ctx context.Context) (*AccessDefinitionsResul
 	if raw.Poster == nil {
 		raw.Poster = map[string]string{}
 	}
+	if raw.Categories == nil {
+		raw.Categories = map[string]map[string]string{}
+	}
+	for name, codes := range raw.Categories {
+		if codes == nil {
+			raw.Categories[name] = map[string]string{}
+		}
+	}
 
-	return &AccessDefinitionsResult{
-		Main:   raw.Main,
-		Poster: raw.Poster,
-	}, nil
+	return &raw, nil
 }
 
 // SubscriptionsTransferLink requests a transfer link from the CRM for

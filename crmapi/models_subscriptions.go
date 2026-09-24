@@ -34,9 +34,15 @@ type SubscriptionsHistoryResult struct {
 	History []AccessHistoryItem `json:"history"`
 }
 
+// AccessDefinitionsResult is the response of AccessDefinitions.
+//
+// Main and Poster are the legacy TraffSoft CRM groups. Categories maps a
+// category name to its access codes and titles; CRMs that predate it do not
+// send the field, in which case Categories is an empty non-nil map.
 type AccessDefinitionsResult struct {
-	Main   map[string]string `json:"main"`
-	Poster map[string]string `json:"poster"`
+	Main       map[string]string            `json:"main"`
+	Poster     map[string]string            `json:"poster"`
+	Categories map[string]map[string]string `json:"categories"`
 }
 
 // TransferLinkResult is the response of SubscriptionsTransferLink.
