@@ -41,7 +41,8 @@ type PaymentHistoryItem struct {
 	UUID            string           `json:"uuid"`
 	Status          string           `json:"status"`
 	StatusRU        string           `json:"status_ru"`
-	ClientID        int64            `json:"client_id"`
+	ClientID        *int64           `json:"client_id,omitempty"`
+	AccountID       *int64           `json:"account_id,omitempty"`
 	ClientEmail     *string          `json:"client_email,omitempty"`
 	RefererID       *int64           `json:"referer_id,omitempty"`
 	StaffID         *int64           `json:"staff_id,omitempty"`
@@ -56,17 +57,28 @@ type PaymentHistoryItem struct {
 	// провайдера. Для platega это transactionId — именно он нужен оператору
 	// при обращении в поддержку Platega (а не наш uuid). nil у черновиков без
 	// выставленного счёта и у старых версий CRM-API, не возвращающих поле.
-	ProviderInvoiceID *string          `json:"provider_invoice_id,omitempty"`
-	PayLink           *string          `json:"pay_link,omitempty"`
-	PayURL            *string          `json:"pay_url,omitempty"`
-	DateCreate        *time.Time       `json:"date_create,omitempty"`
-	DateInvoiced      *time.Time       `json:"date_invoiced,omitempty"`
-	DatePaid          *time.Time       `json:"date_paid,omitempty"`
-	Activation        []ActivationLink `json:"activation"`
+	ProviderInvoiceID *string    `json:"provider_invoice_id,omitempty"`
+	PayLink           *string    `json:"pay_link,omitempty"`
+	PayURL            *string    `json:"pay_url,omitempty"`
+	DateCreate        *time.Time `json:"date_create,omitempty"`
+	DateInvoiced      *time.Time `json:"date_invoiced,omitempty"`
+	DatePaid          *time.Time `json:"date_paid,omitempty"`
+	// Deprecated: CRM SocialTraff не отдаёт activation, используйте Access.
+	Activation []ActivationLink `json:"activation"`
+	// Access — выданный платежом доступ; nil, если платёж доступа не выдал.
+	Access *PaymentAccess `json:"access,omitempty"`
 	// Способ оплаты внутри провайдера ("sbp" | "crypto" для platega; nil
 	// для исторических записей и других провайдеров). Опционально:
 	// старые версии CRM-API поле не возвращают.
 	PaymentMethod *string `json:"payment_method,omitempty"`
+}
+
+// PaymentAccess — доступ, выданный оплаченным платежом (поле access в
+// GET /api/payments).
+type PaymentAccess struct {
+	AccountID *int64     `json:"account_id,omitempty"`
+	Plans     []string   `json:"plans"`
+	AccessEnd *time.Time `json:"access_end,omitempty"`
 }
 
 type ConfirmPaymentResult struct {
@@ -110,7 +122,7 @@ type PaymentsListResult struct {
 // payment-link creator.
 type Sale struct {
 	UUID              string     `json:"uuid"`
-	UserID            int64      `json:"user_id"`
+	UserID            *int64     `json:"user_id,omitempty"`
 	StaffID           *int64     `json:"staff_id,omitempty"`
 	AmountMinor       int64      `json:"amount_minor"`
 	Category          string     `json:"category"`
@@ -130,7 +142,8 @@ type InvoiceInfoResult struct {
 	UUID            string           `json:"uuid"`
 	Status          string           `json:"status"`
 	StatusRU        string           `json:"status_ru"`
-	ClientID        int64            `json:"client_id"`
+	ClientID        *int64           `json:"client_id,omitempty"`
+	AccountID       *int64           `json:"account_id,omitempty"`
 	ClientEmail     *string          `json:"client_email,omitempty"`
 	RefererID       *int64           `json:"referer_id,omitempty"`
 	StaffID         *int64           `json:"staff_id,omitempty"`
@@ -146,6 +159,7 @@ type InvoiceInfoResult struct {
 	DateCreate      *time.Time       `json:"date_create,omitempty"`
 	DateInvoiced    *time.Time       `json:"date_invoiced,omitempty"`
 	DatePaid        *time.Time       `json:"date_paid,omitempty"`
+	WebReturnURL    *string          `json:"web_return_url,omitempty"`
 	// Способ оплаты внутри провайдера ("sbp" | "crypto" для platega; nil
 	// для исторических записей и других провайдеров). Опционально:
 	// старые версии CRM-API поле не возвращают.

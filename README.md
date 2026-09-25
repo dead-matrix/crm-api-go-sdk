@@ -171,6 +171,15 @@ RUN_REAL_API_TESTS=1 go test ./crmapi -run TestRealAPI_Smoke -v
   re-marshal публичных структур теперь даёт camelCase, паритетный с
   серверным форматом.
 - Default `RetryStatusCodes` дополнен `429` — единая retry-policy с Python SDK.
+- Платежи (CRM SocialTraff):
+  - `PaymentHistoryItem.ClientID` / `InvoiceInfoResult.ClientID: int64 → *int64`,
+    `Sale.UserID: int64 → *int64` — у платежей без Telegram-пользователя приходит `null`;
+  - новые поля `AccountID *int64` в `PaymentHistoryItem` и `InvoiceInfoResult`,
+    `InvoiceInfoResult.WebReturnURL *string`;
+  - `PaymentHistoryItem.Access *PaymentAccess` (`AccountID`, `Plans`, `AccessEnd`)
+    заменяет `Activation`; `Activation` помечено Deprecated и остаётся пустым.
+- Smoke против CRM SocialTraff:
+  `RUN_REAL_API_TESTS=1 go test ./crmapi -run TestSocialTraffSmoke -v`.
 
 Миграция: добавить nil-check перед разыменованием указателей.
 Компилятор Go подсветит все места, где старый код полагался на zero-value

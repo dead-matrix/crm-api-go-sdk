@@ -26,16 +26,14 @@ func TestGetPaymentsReturnsEnvelopeWithPagination(t *testing.T) {
 				"items":[
 					{
 						"uuid":"pay-001","status":"paid","status_ru":"Оплачен",
-						"client_id":42,"client_email":"u@example.com",
+						"client_id":42,"account_id":7,"client_email":"u@example.com",
 						"amount_minor":99000,"currency":"RUB",
 						"items":[{"id":1,"title":"Product"}],
 						"provider":"yookassa",
 						"provider_invoice_id":"platega-tx-7788",
 						"date_create":"2024-01-10T10:00:00Z",
 						"date_paid":"2024-01-10T10:10:00Z",
-						"activation":[
-							{"bot_id":1,"code":"ABC123","is_used":false,"url":"https://t.me/b?start=ABC123"}
-						]
+						"access":{"account_id":7,"plans":["pro","ai"],"access_end":"2024-02-10T10:10:00Z"}
 					}
 				]
 			}}`)
@@ -75,8 +73,107 @@ func TestGetPaymentsReturnsEnvelopeWithPagination(t *testing.T) {
 	if p.ProviderInvoiceID == nil || *p.ProviderInvoiceID != "platega-tx-7788" {
 		t.Fatalf("ProviderInvoiceID = %v, want platega-tx-7788", p.ProviderInvoiceID)
 	}
-	if len(p.Activation) != 1 || p.Activation[0].Code != "ABC123" {
-		t.Fatalf("activation = %+v", p.Activation)
+	if p.ClientID == nil || *p.ClientID != 42 {
+		t.Fatalf("ClientID = %v, want 42", p.ClientID)
+	}
+	if p.AccountID == nil || *p.AccountID != 7 {
+		t.Fatalf("AccountID = %v, want 7", p.AccountID)
+	}
+	if p.Access == nil {
+		t.Fatalf("Access = nil, want decoded access")
+	}
+	if p.Access.AccountID == nil || *p.Access.AccountID != 7 {
+		t.Fatalf("Access.AccountID = %v, want 7", p.Access.AccountID)
+	}
+	if len(p.Access.Plans) != 2 || p.Access.Plans[0] != "pro" || p.Access.Plans[1] != "ai" {
+		t.Fatalf("Access.Plans = %v, want [pro ai]", p.Access.Plans)
+	}
+	if p.Access.AccessEnd == nil || p.Access.AccessEnd.Year() != 2024 || p.Access.AccessEnd.Month() != 2 {
+		t.Fatalf("Access.AccessEnd = %v, want 2024-02-10", p.Access.AccessEnd)
+	}
+	if len(p.Activation) != 0 {
+		t.Fatalf("Activation = %+v, want empty", p.Activation)
+	}
+}
+
+func TestGetPaymentsNullClientIDAndAccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/staff/123/auth":
+			fmt.Fprint(w, `{"status":"success","data":{"token":"jwt-1","expires_at":"2030-01-01T00:00:00Z"}}`)
+		case "/api/payments":
+			fmt.Fprint(w, `{"status":"success","data":{
+				"limit":10,"offset":0,"count":1,
+				"items":[
+					{
+						"uuid":"pay-002","status":"draft","status_ru":"Черновик",
+						"client_id":null,"account_id":9,
+						"amount_minor":1000,"currency":"RUB","items":[],
+						"access":null
+					}
+				]
+			}}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := mustNewClient(t, server.URL, server.Client())
+	res, err := client.GetPayments(context.Background(), nil, 10, 0)
+	if err != nil {
+		t.Fatalf("GetPayments() error = %v", err)
+	}
+	if len(res.Items) != 1 {
+		t.Fatalf("len(Items) = %d, want 1", len(res.Items))
+	}
+	p := res.Items[0]
+	if p.ClientID != nil {
+		t.Fatalf("ClientID = %v, want nil (null in response)", *p.ClientID)
+	}
+	if p.AccountID == nil || *p.AccountID != 9 {
+		t.Fatalf("AccountID = %v, want 9", p.AccountID)
+	}
+	if p.Access != nil {
+		t.Fatalf("Access = %+v, want nil (null in response)", p.Access)
+	}
+}
+
+// ----------------------------------------------------------------------------
+// GetInvoiceInfo (GET /api/payments/invoice/{uuid})
+// ----------------------------------------------------------------------------
+
+func TestGetInvoiceInfoNullClientID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/staff/123/auth":
+			fmt.Fprint(w, `{"status":"success","data":{"token":"jwt-1","expires_at":"2030-01-01T00:00:00Z"}}`)
+		case "/api/payments/invoice/inv-001":
+			fmt.Fprint(w, `{"status":"success","data":{
+				"uuid":"inv-001","status":"invoiced","status_ru":"Выставлен",
+				"client_id":null,"account_id":15,
+				"amount_minor":5000,"currency":"RUB","description":"d","items":[],
+				"provider":"platega","web_return_url":"https://example.com/return"
+			}}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := mustNewClient(t, server.URL, server.Client())
+	res, err := client.GetInvoiceInfo(context.Background(), "inv-001")
+	if err != nil {
+		t.Fatalf("GetInvoiceInfo() error = %v", err)
+	}
+	if res.ClientID != nil {
+		t.Fatalf("ClientID = %v, want nil (null in response)", *res.ClientID)
+	}
+	if res.AccountID == nil || *res.AccountID != 15 {
+		t.Fatalf("AccountID = %v, want 15", res.AccountID)
+	}
+	if res.WebReturnURL == nil || *res.WebReturnURL != "https://example.com/return" {
+		t.Fatalf("WebReturnURL = %v, want https://example.com/return", res.WebReturnURL)
 	}
 }
 
@@ -195,7 +292,7 @@ func TestGetMonthlySalesReturnsCategorizedPayments(t *testing.T) {
 					},
 					{
 						"uuid":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-						"user_id":101,"staff_id":null,
+						"user_id":null,"staff_id":null,
 						"amount_minor":100000,
 						"category":"other","repeat_purchase":false,"first_ever_purchase":true,
 						"date_paid":"2026-04-11T12:00:00Z"
@@ -252,6 +349,12 @@ func TestGetMonthlySalesReturnsCategorizedPayments(t *testing.T) {
 	}
 	if otherNew.StaffID != nil {
 		t.Fatalf("StaffID = %v, want nil (null in response)", otherNew.StaffID)
+	}
+	if otherNew.UserID != nil {
+		t.Fatalf("UserID = %v, want nil (null in response)", *otherNew.UserID)
+	}
+	if mainRepeat.UserID == nil || *mainRepeat.UserID != 100 {
+		t.Fatalf("UserID = %v, want pointer to 100", mainRepeat.UserID)
 	}
 
 	extraNoDate := res.Payments[2]

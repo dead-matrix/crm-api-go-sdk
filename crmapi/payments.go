@@ -114,7 +114,8 @@ func (c *Client) GetInvoiceInfo(ctx context.Context, uuid string) (*InvoiceInfoR
 		UUID            string           `json:"uuid"`
 		Status          string           `json:"status"`
 		StatusRU        string           `json:"status_ru"`
-		ClientID        int64            `json:"client_id"`
+		ClientID        *int64           `json:"client_id"`
+		AccountID       *int64           `json:"account_id"`
 		ClientEmail     *string          `json:"client_email"`
 		RefererID       *int64           `json:"referer_id"`
 		StaffID         *int64           `json:"staff_id"`
@@ -130,6 +131,7 @@ func (c *Client) GetInvoiceInfo(ctx context.Context, uuid string) (*InvoiceInfoR
 		DateCreate      *string          `json:"date_create"`
 		DateInvoiced    *string          `json:"date_invoiced"`
 		DatePaid        *string          `json:"date_paid"`
+		WebReturnURL    *string          `json:"web_return_url"`
 		PaymentMethod   *string          `json:"payment_method"`
 	}
 
@@ -161,6 +163,7 @@ func (c *Client) GetInvoiceInfo(ctx context.Context, uuid string) (*InvoiceInfoR
 		Status:          raw.Status,
 		StatusRU:        raw.StatusRU,
 		ClientID:        raw.ClientID,
+		AccountID:       raw.AccountID,
 		ClientEmail:     raw.ClientEmail,
 		RefererID:       raw.RefererID,
 		StaffID:         raw.StaffID,
@@ -176,6 +179,7 @@ func (c *Client) GetInvoiceInfo(ctx context.Context, uuid string) (*InvoiceInfoR
 		DateCreate:      dateCreate,
 		DateInvoiced:    dateInvoiced,
 		DatePaid:        datePaid,
+		WebReturnURL:    raw.WebReturnURL,
 		PaymentMethod:   raw.PaymentMethod,
 	}, nil
 }
@@ -215,7 +219,8 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64, limit int64, of
 			UUID              string           `json:"uuid"`
 			Status            string           `json:"status"`
 			StatusRU          string           `json:"status_ru"`
-			ClientID          int64            `json:"client_id"`
+			ClientID          *int64           `json:"client_id"`
+			AccountID         *int64           `json:"account_id"`
 			ClientEmail       *string          `json:"client_email"`
 			RefererID         *int64           `json:"referer_id"`
 			StaffID           *int64           `json:"staff_id"`
@@ -239,6 +244,11 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64, limit int64, of
 				IsUsed bool   `json:"is_used"`
 				URL    string `json:"url"`
 			} `json:"activation"`
+			Access *struct {
+				AccountID *int64   `json:"account_id"`
+				Plans     []string `json:"plans"`
+				AccessEnd *string  `json:"access_end"`
+			} `json:"access"`
 		} `json:"items"`
 	}
 
@@ -256,6 +266,18 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64, limit int64, of
 				IsUsed: ac.IsUsed,
 				URL:    ac.URL,
 			})
+		}
+
+		var access *PaymentAccess
+		if p.Access != nil {
+			plans := p.Access.Plans
+			if plans == nil {
+				plans = []string{}
+			}
+			access = &PaymentAccess{AccountID: p.Access.AccountID, Plans: plans}
+			if p.Access.AccessEnd != nil {
+				access.AccessEnd = utils.ParseTime(*p.Access.AccessEnd)
+			}
 		}
 
 		var dateCreate *time.Time
@@ -282,6 +304,7 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64, limit int64, of
 			Status:            p.Status,
 			StatusRU:          p.StatusRU,
 			ClientID:          p.ClientID,
+			AccountID:         p.AccountID,
 			ClientEmail:       p.ClientEmail,
 			RefererID:         p.RefererID,
 			StaffID:           p.StaffID,
@@ -299,6 +322,7 @@ func (c *Client) GetPayments(ctx context.Context, userID *int64, limit int64, of
 			DateInvoiced:      dateInvoiced,
 			DatePaid:          datePaid,
 			Activation:        activation,
+			Access:            access,
 			PaymentMethod:     p.PaymentMethod,
 		})
 	}
@@ -323,7 +347,7 @@ func (c *Client) GetMonthlySales(ctx context.Context, monthOffset int) (*Monthly
 		MonthStart *string `json:"month_start"`
 		Payments   []struct {
 			UUID              string  `json:"uuid"`
-			UserID            int64   `json:"user_id"`
+			UserID            *int64  `json:"user_id"`
 			StaffID           *int64  `json:"staff_id"`
 			AmountMinor       int64   `json:"amount_minor"`
 			Category          string  `json:"category"`
