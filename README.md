@@ -180,6 +180,15 @@ RUN_REAL_API_TESTS=1 go test ./crmapi -run TestRealAPI_Smoke -v
     заменяет `Activation`; `Activation` помечено Deprecated и остаётся пустым.
 - Smoke против CRM SocialTraff:
   `RUN_REAL_API_TESTS=1 go test ./crmapi -run TestSocialTraffSmoke -v`.
+- Рефералы (CRM SocialTraff, v0.0.0-socialtraff.3):
+  - `ReferralsInfoResult.Partner *ReferralPartner`: сводка партнёра из ключа
+    `partner` (ставки, холд, счётчики, суммы в USD-центах и копейках, промокоды
+    `PartnerPromoCode`, открытая заявка `PartnerPendingWithdrawal`, последние
+    начисления `PartnerAccrual`); `nil`, если CRM ключ не прислала;
+  - `AvailableUSD` верхнего уровня теперь без холда (холд в `Partner.OnHoldUSDCents`);
+  - `ReferralsWithdrawRequest` принимает только `method = "wallet"`, для
+    `subscription` возвращает `ValidationError` без запроса к CRM;
+    `ReferralsWithdrawSettle` по-прежнему принимает `wallet` и `subscription`.
 
 Миграция: добавить nil-check перед разыменованием указателей.
 Компилятор Go подсветит все места, где старый код полагался на zero-value
