@@ -117,11 +117,11 @@ func TestReplyTemplatesDeliveryRefsList_ValidatesArgsBeforeRoundTrip(t *testing.
 	client := mustNewClient(t, server.URL, server.Client())
 
 	for _, tc := range []struct {
-		name              string
-		templateID        int64
-		provider          string
-		providerScope     string
-		expectFragment    string
+		name           string
+		templateID     int64
+		provider       string
+		providerScope  string
+		expectFragment string
 	}{
 		{"zero templateID", 0, "telegram", "x", "template_id"},
 		{"empty provider", 1, "", "x", "provider"},

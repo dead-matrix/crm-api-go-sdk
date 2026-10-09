@@ -136,9 +136,9 @@ func TestReplyTemplatesListNegativeValidation(t *testing.T) {
 
 	client := mustNewClient(t, server.URL, server.Client())
 	for _, tc := range []struct {
-		name           string
-		limit          int64
-		offset         int64
+		name   string
+		limit  int64
+		offset int64
 	}{
 		{"limit negative", -1, 0},
 		{"offset negative", 0, -1},
