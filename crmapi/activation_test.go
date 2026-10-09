@@ -89,3 +89,36 @@ func TestActivationRedeem_NonNullPaymentID(t *testing.T) {
 		t.Fatalf("Quantity = %d, want 3", res.Quantity)
 	}
 }
+
+// TestActivationRedeem_AccountID: CRM SocialTraff отдаёт аккаунт получателя.
+// На повторе погашенного кода значение берётся из старой строки доступа и
+// может быть null, поэтому поле указательное.
+func TestActivationRedeem_AccountID(t *testing.T) {
+	accountJSON := "77"
+	server := newCRMTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		wantRequest(t, r, http.MethodPost, "/api/activation/redeem")
+		writeSuccess(w, `{"account_id":`+accountJSON+`,"user_id":42,"bot_id":10,"action":"add",
+			"access":{"cabinet.pro":true},"access_end":"2030-01-01T00:00:00","quantity":1,
+			"activation_code_id":7,"payment_id":12345,"idempotent_replay":true}`)
+	})
+
+	client := mustNewClient(t, server.URL, server.Client())
+	input := ActivationRedeemInput{Token: "ACT_abc", RecipientUserID: 42, BotID: 10}
+
+	res, err := client.ActivationRedeem(context.Background(), input)
+	if err != nil {
+		t.Fatalf("ActivationRedeem error: %v", err)
+	}
+	if !res.Success || res.AccountID == nil || *res.AccountID != 77 || !res.IdempotentReplay {
+		t.Fatalf("result = %+v", res)
+	}
+
+	accountJSON = "null"
+	res, err = client.ActivationRedeem(context.Background(), input)
+	if err != nil {
+		t.Fatalf("ActivationRedeem error: %v", err)
+	}
+	if !res.Success || res.AccountID != nil {
+		t.Fatalf("AccountID = %v, want nil for null", res.AccountID)
+	}
+}

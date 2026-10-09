@@ -228,7 +228,24 @@ func (c *Client) GetUser(ctx context.Context, userID int64) (*GetUserResult, err
 	}, nil
 }
 
+// ExtendUserAccess продлевает доступ основного аккаунта человека на days дней
+// (POST /api/users/{user_id}/access/extend).
 func (c *Client) ExtendUserAccess(ctx context.Context, userID int64, botID int64, days int64) (*ExtendAccessResult, error) {
+	return c.extendUserAccess(ctx, userID, botID, days, nil)
+}
+
+// ExtendUserAccessForAccount продлевает доступ конкретного аккаунта человека.
+// Нужен, когда у человека несколько аккаунтов: без account_id CRM продлевает
+// только основной. Человек обязан состоять в аккаунте, иначе вернётся
+// *APIError с кодом not_found (404).
+func (c *Client) ExtendUserAccessForAccount(ctx context.Context, userID, botID, days, accountID int64) (*ExtendAccessResult, error) {
+	if accountID <= 0 {
+		return nil, &ValidationError{Message: "account_id must be a positive integer"}
+	}
+	return c.extendUserAccess(ctx, userID, botID, days, &accountID)
+}
+
+func (c *Client) extendUserAccess(ctx context.Context, userID, botID, days int64, accountID *int64) (*ExtendAccessResult, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
 	}
@@ -244,12 +261,20 @@ func (c *Client) ExtendUserAccess(ctx context.Context, userID int64, botID int64
 		"days":   fmt.Sprintf("%d", days),
 	}
 
+	// Тело шлём только с аккаунтом: прежний вызов без тела остаётся
+	// байт-в-байт тем же запросом, который понимает и старая CRM.
+	var body any
+	if accountID != nil {
+		body = map[string]int64{"account_id": *accountID}
+	}
+
 	var raw struct {
 		UserID    int64   `json:"user_id"`
+		AccountID *int64  `json:"account_id"`
 		AccessEnd *string `json:"access_end"`
 	}
 
-	if err := c.post(ctx, fmt.Sprintf("/api/users/%d/access/extend", userID), query, true, nil, &raw); err != nil {
+	if err := c.post(ctx, fmt.Sprintf("/api/users/%d/access/extend", userID), query, true, body, &raw); err != nil {
 		return nil, err
 	}
 
@@ -260,6 +285,7 @@ func (c *Client) ExtendUserAccess(ctx context.Context, userID int64, botID int64
 
 	return &ExtendAccessResult{
 		UserID:    raw.UserID,
+		AccountID: raw.AccountID,
 		AccessEnd: accessEnd,
 	}, nil
 }
