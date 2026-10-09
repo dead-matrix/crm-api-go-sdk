@@ -48,6 +48,10 @@ type ActivationRedeemResult struct {
 	ErrorCode    string `json:"error_code,omitempty"`
 	ErrorMessage string `json:"error_message,omitempty"`
 
+	// AccountID - аккаунт получателя, которому выдан доступ. Указатель: на
+	// повторе уже погашенного кода CRM берёт значение из старой строки доступа,
+	// где аккаунта может не быть (null), а старая CRM ключ не присылает вовсе.
+	AccountID *int64     `json:"account_id,omitempty"`
 	UserID    int64      `json:"user_id,omitempty"`
 	BotID     int64      `json:"bot_id,omitempty"`
 	Action    string     `json:"action,omitempty"` // "add" | "extend"

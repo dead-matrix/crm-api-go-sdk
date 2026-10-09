@@ -86,9 +86,15 @@ type UpdateUserResult struct {
 	Username *string `json:"username,omitempty"`
 }
 
+// AddAccessResult - результат AddAccess.
+//
+// AccountID - аккаунт, в который записана строка доступа: по нему видно, какой
+// аккаунт CRM выбрала основным, когда вызов шёл только по UserID. nil у старой
+// CRM без этого ключа. UserID равен нулю, если вызов шёл только по AccountID.
 type AddAccessResult struct {
 	Created    bool       `json:"created"`
 	ID         *int64     `json:"id,omitempty"`
+	AccountID  *int64     `json:"account_id,omitempty"`
 	UserID     int64      `json:"user_id"`
 	BotID      int64      `json:"bot_id"`
 	Action     string     `json:"action"`
@@ -96,8 +102,11 @@ type AddAccessResult struct {
 	AccessEnd  *time.Time `json:"access_end,omitempty"`
 }
 
+// ExtendAccessResult - результат ExtendUserAccess и ExtendUserAccessForAccount.
+// AccountID - аккаунт, чей доступ продлён (nil у старой CRM без этого ключа).
 type ExtendAccessResult struct {
 	UserID    int64      `json:"user_id"`
+	AccountID *int64     `json:"account_id,omitempty"`
 	AccessEnd *time.Time `json:"access_end,omitempty"`
 }
 
