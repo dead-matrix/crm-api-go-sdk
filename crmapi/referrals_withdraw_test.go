@@ -170,3 +170,97 @@ func TestReferralsWithdrawSettleAcceptsWalletAndSubscription(t *testing.T) {
 		t.Fatalf("server got methods %v", gotMethods)
 	}
 }
+
+// Суммы заявки в центах: какие поля заполнены, решает статус, остальные nil.
+func TestReferralsWithdrawRequest_MinorAmountsByStatus(t *testing.T) {
+	response := ""
+	server := newCRMTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		wantRequest(t, r, http.MethodPost, "/api/referrals/withdraw/request")
+		writeSuccess(w, response)
+	})
+	client := mustNewClient(t, server.URL, server.Client())
+	request := func(data string) *WithdrawRequestResult {
+		t.Helper()
+		response = data
+		res, err := client.ReferralsWithdrawRequest(context.Background(), 9001, "wallet")
+		if err != nil {
+			t.Fatalf("ReferralsWithdrawRequest error: %v", err)
+		}
+		return res
+	}
+
+	res := request(`{"status":"below_min","available_minor":730,"min_minor":1000,"available_usd":7.3,"min_usd":10.0}`)
+	if res.Status != "below_min" {
+		t.Fatalf("Status = %s, want below_min", res.Status)
+	}
+	if res.AvailableMinor == nil || *res.AvailableMinor != 730 || res.MinMinor == nil || *res.MinMinor != 1000 {
+		t.Fatalf("below_min minor = %v / %v", res.AvailableMinor, res.MinMinor)
+	}
+	if res.AvailableUSD == nil || *res.AvailableUSD != 7.3 || res.MinUSD == nil || *res.MinUSD != 10 {
+		t.Fatalf("below_min usd = %v / %v", res.AvailableUSD, res.MinUSD)
+	}
+	if res.WithdrawalID != nil || res.AmountMinor != nil || res.AmountUSD != nil || res.Method != nil {
+		t.Fatalf("below_min must not carry a withdrawal: %+v", res)
+	}
+
+	res = request(`{"status":"created","withdrawal_id":7,"amount_minor":1250,"amount_usd":12.5,"method":"wallet"}`)
+	if res.Status != "created" || res.AmountMinor == nil || *res.AmountMinor != 1250 || res.WithdrawalID == nil || *res.WithdrawalID != 7 {
+		t.Fatalf("created = %+v", res)
+	}
+	if res.AvailableMinor != nil || res.MinMinor != nil || res.MinUSD != nil {
+		t.Fatalf("created must not carry balance fields: %+v", res)
+	}
+
+	res = request(`{"status":"already_pending","withdrawal_id":9,"amount_minor":3000,"amount_usd":30.0}`)
+	if res.Status != "already_pending" || res.AmountMinor == nil || *res.AmountMinor != 3000 || res.Method != nil {
+		t.Fatalf("already_pending = %+v", res)
+	}
+
+	// Ноль в no_balance - значение, а не отсутствие: указатель не nil.
+	res = request(`{"status":"no_balance","available_minor":0,"available_usd":0.0}`)
+	if res.Status != "no_balance" || res.AvailableMinor == nil || *res.AvailableMinor != 0 || res.MinMinor != nil {
+		t.Fatalf("no_balance = %+v", res)
+	}
+}
+
+// Повтор по закрытой заявке и неизвестный id приходят успехом со своим
+// статусом: деньги не двигались, и по current_status видно, чем заявка кончилась.
+func TestReferralsWithdrawSettle_AlreadySettledAndNotFound(t *testing.T) {
+	response := ""
+	server := newCRMTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		wantRequest(t, r, http.MethodPost, "/api/referrals/withdraw/settle")
+		writeSuccess(w, response)
+	})
+	client := mustNewClient(t, server.URL, server.Client())
+	wid := int64(7)
+
+	response = `{"status":"already_settled","withdrawal_id":7,"current_status":"rejected"}`
+	res, err := client.ReferralsWithdrawSettle(context.Background(), 9001, 3000, "wallet", &wid)
+	if err != nil {
+		t.Fatalf("settle error: %v", err)
+	}
+	if res.Status != "already_settled" || res.WithdrawalID != 7 || res.CurrentStatus == nil || *res.CurrentStatus != "rejected" {
+		t.Fatalf("already_settled = %+v", res)
+	}
+	if res.PaidUSD != 0 || res.Method != "" {
+		t.Fatalf("already_settled must not report a payout: %+v", res)
+	}
+
+	response = `{"status":"not_found","withdrawal_id":7}`
+	res, err = client.ReferralsWithdrawSettle(context.Background(), 9001, 3000, "wallet", &wid)
+	if err != nil {
+		t.Fatalf("settle error: %v", err)
+	}
+	if res.Status != "not_found" || res.CurrentStatus != nil {
+		t.Fatalf("not_found = %+v", res)
+	}
+
+	response = `{"status":"settled","withdrawal_id":7,"paid_usd":30,"available_after_usd":0,"method":"wallet"}`
+	res, err = client.ReferralsWithdrawSettle(context.Background(), 9001, 3000, "wallet", &wid)
+	if err != nil {
+		t.Fatalf("settle error: %v", err)
+	}
+	if res.Status != "settled" || res.CurrentStatus != nil || res.PaidUSD != 30 {
+		t.Fatalf("settled = %+v", res)
+	}
+}

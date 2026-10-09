@@ -235,14 +235,21 @@ type ExtendAILimitResult struct {
 	AILimit         int64 `json:"ai_limit"`
 }
 
-// GrantAITokensResult — результат начисления пакета токенов новой системы
-// (леджер + легаси ai_limit). Granted=false — повтор с тем же ref (идемпотентный
-// no-op), previous/ai_limit тогда null у CRM и остаются нулями здесь.
+// GrantAITokensResult - результат начисления пакета токенов новой системы
+// (леджер + легаси ai_limit). Granted=false - повтор с тем же ref (идемпотентный
+// no-op), previous/ai_limit тогда null у CRM и остаются нулями здесь. CRM
+// SocialTraff легаси-лимит не ведёт и отдаёт в них null всегда.
 type GrantAITokensResult struct {
-	Granted         bool   `json:"granted"`
+	Granted bool `json:"granted"`
+	// AccountID - аккаунт, на чей AI-баланс легло начисление: CRM SocialTraff
+	// ведёт баланс по основному аккаунту человека. Ноль у CRM без этого ключа.
+	AccountID       int64  `json:"account_id"`
 	Function        string `json:"function"`
 	Tokens          int64  `json:"tokens"`
 	PreviousAILimit int64  `json:"previous_ai_limit"`
 	AILimit         int64  `json:"ai_limit"`
 	BalanceTokens   int64  `json:"balance_tokens"`
+	// Unlimited - у аккаунта безлимит по этой функции: BalanceTokens остаётся
+	// настоящим остатком, но расход им не ограничен.
+	Unlimited bool `json:"unlimited"`
 }

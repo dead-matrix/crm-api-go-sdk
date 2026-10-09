@@ -20,6 +20,10 @@ var withdrawRequestMethods = map[string]bool{"wallet": true}
 
 // ReferralsInfo: реферальная сводка пользователя (GET /referrals/info).
 // Result.Partner заполнен, только если CRM прислала ключ partner.
+//
+// В CRM SocialTraff userID здесь и в методах вывода - идентификатор покупателя
+// (GetUserResult.Buyer.BuyerID), а не Telegram id: по Telegram id CRM найдёт
+// не того покупателя или никого.
 func (c *Client) ReferralsInfo(ctx context.Context, userID int64) (*ReferralsInfoResult, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
@@ -31,6 +35,7 @@ func (c *Client) ReferralsInfo(ctx context.Context, userID int64) (*ReferralsInf
 
 	var raw struct {
 		RefLink                  string  `json:"ref_link"`
+		RefBotLink               *string `json:"ref_bot_link"`
 		Percent                  int64   `json:"percent"`
 		Registrations            int64   `json:"registrations"`
 		RefPayments              int64   `json:"ref_payments"`
@@ -88,6 +93,7 @@ func (c *Client) ReferralsInfo(ctx context.Context, userID int64) (*ReferralsInf
 
 	return &ReferralsInfoResult{
 		RefLink:                  raw.RefLink,
+		RefBotLink:               raw.RefBotLink,
 		Percent:                  raw.Percent,
 		Registrations:            raw.Registrations,
 		RefPayments:              raw.RefPayments,
@@ -198,12 +204,15 @@ func mapReferralPartner(raw *rawReferralPartner) *ReferralPartner {
 	}
 }
 
-// ReferralsWithdrawRequest — заявка реферера на вывод всего доступного баланса.
+// ReferralsWithdrawRequest - заявка реферера на вывод всего доступного баланса.
+// userID в CRM SocialTraff - идентификатор покупателя (см. ReferralsInfo).
 //
 // method: только "wallet" (subscription CRM отклоняет с 400, SDK возвращает
-// ValidationError без HTTP-вызова). Result.Status: "no_balance" |
-// "already_pending" (бот показывает call.answer show_alert) | "created"
-// (создана заявка + outbox-событие в мессенджер).
+// ValidationError без HTTP-вызова). Result.Status: "no_balance" | "below_min"
+// (баланс меньше минимальной суммы вывода) | "already_pending" (бот показывает
+// call.answer show_alert) | "created" (создана заявка + outbox-событие в
+// мессенджер). Какие поля заполнены при каждом статусе, описано у
+// WithdrawRequestResult.
 func (c *Client) ReferralsWithdrawRequest(ctx context.Context, userID int64, method string) (*WithdrawRequestResult, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
@@ -216,11 +225,15 @@ func (c *Client) ReferralsWithdrawRequest(ctx context.Context, userID int64, met
 	body := map[string]any{"user_id": userID, "method": m}
 
 	var raw struct {
-		Status       string   `json:"status"`
-		WithdrawalID *int64   `json:"withdrawal_id"`
-		AmountUSD    *float64 `json:"amount_usd"`
-		Method       *string  `json:"method"`
-		AvailableUSD *float64 `json:"available_usd"`
+		Status         string   `json:"status"`
+		WithdrawalID   *int64   `json:"withdrawal_id"`
+		AmountMinor    *int64   `json:"amount_minor"`
+		AmountUSD      *float64 `json:"amount_usd"`
+		Method         *string  `json:"method"`
+		AvailableMinor *int64   `json:"available_minor"`
+		AvailableUSD   *float64 `json:"available_usd"`
+		MinMinor       *int64   `json:"min_minor"`
+		MinUSD         *float64 `json:"min_usd"`
 	}
 
 	if err := c.post(ctx, "/api/referrals/withdraw/request", nil, true, body, &raw); err != nil {
@@ -228,19 +241,28 @@ func (c *Client) ReferralsWithdrawRequest(ctx context.Context, userID int64, met
 	}
 
 	return &WithdrawRequestResult{
-		Status:       raw.Status,
-		WithdrawalID: raw.WithdrawalID,
-		AmountUSD:    raw.AmountUSD,
-		Method:       raw.Method,
-		AvailableUSD: raw.AvailableUSD,
+		Status:         raw.Status,
+		WithdrawalID:   raw.WithdrawalID,
+		AmountMinor:    raw.AmountMinor,
+		AmountUSD:      raw.AmountUSD,
+		Method:         raw.Method,
+		AvailableMinor: raw.AvailableMinor,
+		AvailableUSD:   raw.AvailableUSD,
+		MinMinor:       raw.MinMinor,
+		MinUSD:         raw.MinUSD,
 	}, nil
 }
 
-// ReferralsWithdrawSettle — провести вывод: перевести amountMinor (USD-центы)
+// ReferralsWithdrawSettle - провести вывод: перевести amountMinor (USD-центы)
 // из «доступно» в «выплачено» и зафиксировать method. Поддерживает частичный
-// вывод. withdrawalID (опц.) — закрыть конкретную заявку; иначе закрывается
+// вывод. withdrawalID (опц.) - закрыть конкретную заявку; иначе закрывается
 // открытая заявка пользователя либо создаётся запись вывода.
 // method: "wallet" | "subscription" (в отличие от заявки, settle принимает оба).
+// userID в CRM SocialTraff - идентификатор покупателя (см. ReferralsInfo).
+//
+// Повтор по уже закрытой заявке и неизвестный withdrawalID не ошибки: они
+// приходят успешным ответом со Status "already_settled" и "not_found", см.
+// WithdrawSettleResult. Проверяйте Status, прежде чем считать вывод проведённым.
 func (c *Client) ReferralsWithdrawSettle(ctx context.Context, userID int64, amountMinor int64, method string, withdrawalID *int64) (*WithdrawSettleResult, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
@@ -264,6 +286,7 @@ func (c *Client) ReferralsWithdrawSettle(ctx context.Context, userID int64, amou
 		PaidUSD           float64 `json:"paid_usd"`
 		AvailableAfterUSD float64 `json:"available_after_usd"`
 		Method            string  `json:"method"`
+		CurrentStatus     *string `json:"current_status"`
 	}
 
 	if err := c.post(ctx, "/api/referrals/withdraw/settle", nil, true, body, &raw); err != nil {
@@ -276,5 +299,6 @@ func (c *Client) ReferralsWithdrawSettle(ctx context.Context, userID int64, amou
 		PaidUSD:           raw.PaidUSD,
 		AvailableAfterUSD: raw.AvailableAfterUSD,
 		Method:            raw.Method,
+		CurrentStatus:     raw.CurrentStatus,
 	}, nil
 }
