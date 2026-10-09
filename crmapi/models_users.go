@@ -3,8 +3,12 @@ package crmapi
 import "time"
 
 type UserBotInfo struct {
-	BotID      int64      `json:"bot_id"`
-	BotName    string     `json:"bot_name"`
+	BotID   int64  `json:"bot_id"`
+	BotName string `json:"bot_name"`
+	// AccountID - аккаунт, чей доступ показан в этом элементе: в CRM SocialTraff
+	// это основной аккаунт человека. nil, если у человека нет ни одного аккаунта
+	// или CRM старая и ключа не присылает.
+	AccountID  *int64     `json:"account_id,omitempty"`
 	Registered *time.Time `json:"registered,omitempty"`
 	Refer      *string    `json:"refer,omitempty"`
 	Access     any        `json:"access,omitempty"`
@@ -23,6 +27,56 @@ type UserBotInfo struct {
 	FrozenExpiry map[string]string `json:"frozen_expiry,omitempty"`
 }
 
+// UserBuyer - покупатель продукта, привязанный к Telegram-пользователю
+// (ключ buyer карточки GET /api/users/{user_id}).
+type UserBuyer struct {
+	// BuyerID - идентификатор покупателя. Именно его, а не Telegram id, CRM
+	// ждёт в параметре user_id реферальных маршрутов: передавайте BuyerID в
+	// ReferralsInfo, ReferralsWithdrawRequest и ReferralsWithdrawSettle.
+	BuyerID     int64   `json:"buyer_id"`
+	Email       *string `json:"email,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
+	// RefCode - собственный реферальный код покупателя (для ссылок ?ref=).
+	// Refer и Landing - метка его регистрации: UTM или чужой реф-код и страница
+	// входа; nil, если метки нет.
+	RefCode   *string    `json:"ref_code,omitempty"`
+	Refer     *string    `json:"refer,omitempty"`
+	Landing   *string    `json:"landing,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+}
+
+// UserAccount - участие человека в аккаунте (элемент accounts карточки
+// GET /api/users/{user_id}). Подписка в CRM SocialTraff принадлежит аккаунту,
+// поэтому доступ и сроки лежат здесь, а не на человеке.
+//
+// Поля от AccessEnd и ниже появились позже остальных: CRM, которая их ещё не
+// отдаёт, оставляет в них нулевые значения и nil.
+type UserAccount struct {
+	AccountID int64  `json:"account_id"`
+	Title     string `json:"title"`
+	// Role - роль человека в аккаунте: owner | admin | buyer | viewer.
+	Role string `json:"role"`
+	// Access - живые фичи аккаунта {ключ: true}; nil, если активного доступа
+	// нет. AccessExpiry - конец каждой живой фичи {ключ: ISO-строка}; nil у
+	// неактивного доступа и у старых строк без карты сроков. AccessEnd - самый
+	// поздний из этих концов.
+	Access       map[string]bool   `json:"access,omitempty"`
+	AccessExpiry map[string]string `json:"access_expiry,omitempty"`
+	AccessEnd    *time.Time        `json:"access_end,omitempty"`
+	// IsPersonal - аккаунт, заведённый при регистрации покупателя. IsPrimary -
+	// основной аккаунт человека: в него идут действия без явного account_id
+	// (AddAccess, ManageAccess, ExtendUserAccess, SubscriptionsHistory).
+	IsPersonal   bool       `json:"is_personal"`
+	IsPrimary    bool       `json:"is_primary"`
+	OwnerBuyerID int64      `json:"owner_buyer_id"`
+	CreatedAt    *time.Time `json:"created_at,omitempty"`
+	// JoinedAt - когда человек стал участником аккаунта.
+	JoinedAt     *time.Time `json:"joined_at,omitempty"`
+	MembersCount int64      `json:"members_count"`
+	ChatsCount   int64      `json:"chats_count"`
+	BotsCount    int64      `json:"bots_count"`
+}
+
 type GetUserResult struct {
 	UserID   int64   `json:"user_id"`
 	FullName *string `json:"full_name,omitempty"`
@@ -33,6 +87,72 @@ type GetUserResult struct {
 	HasActiveSubscription bool          `json:"has_active_subscription"`
 	Frozen                bool          `json:"frozen"`
 	BotsInfo              []UserBotInfo `json:"bots_info"`
+	// Buyer - покупатель продукта за этим Telegram-пользователем. nil, если
+	// человек писал боту, но покупателем не стал, либо CRM ключ не присылает.
+	Buyer *UserBuyer `json:"buyer,omitempty"`
+	// Accounts - все активные участия человека в аккаунтах. Всегда не nil:
+	// у человека без аккаунтов и у CRM без этого ключа срез пустой.
+	Accounts []UserAccount `json:"accounts"`
+}
+
+// UserAccountMember - участник аккаунта в карточке GetUserAccount. TgID равен
+// nil у покупателя без привязанного Telegram.
+type UserAccountMember struct {
+	BuyerID     int64      `json:"buyer_id"`
+	TgID        *int64     `json:"tg_id,omitempty"`
+	Email       *string    `json:"email,omitempty"`
+	DisplayName *string    `json:"display_name,omitempty"`
+	Role        string     `json:"role"`
+	JoinedAt    *time.Time `json:"joined_at,omitempty"`
+}
+
+// UserAccountChat - чат или канал Telegram, подключённый к аккаунту.
+type UserAccountChat struct {
+	TgChatID int64      `json:"tg_chat_id"`
+	Type     string     `json:"type"`
+	LinkedAt *time.Time `json:"linked_at,omitempty"`
+}
+
+// UserAccountBot - Telegram-бот, подключённый к аккаунту.
+type UserAccountBot struct {
+	BotTelegramID int64      `json:"bot_telegram_id"`
+	LinkedAt      *time.Time `json:"linked_at,omitempty"`
+}
+
+// UserAccountPromo - промокод, который аккаунт активировал, но выгоду по нему
+// ещё не получил: она ждёт платежа. Effect - вид выгоды (bonus_days |
+// discount_percent), Value - её размер в днях или процентах. Значения
+// зафиксированы на момент активации и не меняются при правке самого кода.
+type UserAccountPromo struct {
+	Code                  string     `json:"code"`
+	Effect                string     `json:"effect"`
+	Value                 int64      `json:"value"`
+	FirstSubscriptionOnly bool       `json:"first_subscription_only"`
+	Status                string     `json:"status"`
+	CreatedAt             *time.Time `json:"created_at,omitempty"`
+}
+
+// UserAccountCard - полная карточка аккаунта глазами одного его участника
+// (GET /api/users/{user_id}/accounts/{account_id}). В отличие от UserAccount
+// несёт сами списки участников, чатов и ботов, а не только их количество.
+//
+// Role - роль запрошенного человека в этом аккаунте. Access, AccessExpiry и
+// AccessEnd читаются так же, как у UserAccount. Срезы всегда не nil.
+type UserAccountCard struct {
+	AccountID    int64               `json:"account_id"`
+	Title        string              `json:"title"`
+	IsPersonal   bool                `json:"is_personal"`
+	IsPrimary    bool                `json:"is_primary"`
+	CreatedAt    *time.Time          `json:"created_at,omitempty"`
+	OwnerBuyerID int64               `json:"owner_buyer_id"`
+	Role         string              `json:"role"`
+	Access       map[string]bool     `json:"access,omitempty"`
+	AccessExpiry map[string]string   `json:"access_expiry,omitempty"`
+	AccessEnd    *time.Time          `json:"access_end,omitempty"`
+	Members      []UserAccountMember `json:"members"`
+	Chats        []UserAccountChat   `json:"chats"`
+	Bots         []UserAccountBot    `json:"bots"`
+	PromoPending []UserAccountPromo  `json:"promo_pending"`
 }
 
 // CreateUserResult is the result of POST /api/users (idempotent).
