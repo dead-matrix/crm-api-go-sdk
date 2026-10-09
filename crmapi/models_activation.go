@@ -48,14 +48,18 @@ type ActivationRedeemResult struct {
 	ErrorCode    string `json:"error_code,omitempty"`
 	ErrorMessage string `json:"error_message,omitempty"`
 
-	UserID           int64      `json:"user_id,omitempty"`
-	BotID            int64      `json:"bot_id,omitempty"`
-	Action           string     `json:"action,omitempty"` // "add" | "extend"
-	Access           any        `json:"access,omitempty"`
-	AccessEnd        *time.Time `json:"access_end,omitempty"`
+	// AccountID - аккаунт получателя, которому выдан доступ. Указатель: на
+	// повторе уже погашенного кода CRM берёт значение из старой строки доступа,
+	// где аккаунта может не быть (null), а старая CRM ключ не присылает вовсе.
+	AccountID *int64     `json:"account_id,omitempty"`
+	UserID    int64      `json:"user_id,omitempty"`
+	BotID     int64      `json:"bot_id,omitempty"`
+	Action    string     `json:"action,omitempty"` // "add" | "extend"
+	Access    any        `json:"access,omitempty"`
+	AccessEnd *time.Time `json:"access_end,omitempty"`
 	// Quantity — кол-во оплаченных месяцев; срок = quantity*30 дней.
-	Quantity         int64      `json:"quantity,omitempty"`
-	ActivationCodeID int64      `json:"activation_code_id,omitempty"`
+	Quantity         int64 `json:"quantity,omitempty"`
+	ActivationCodeID int64 `json:"activation_code_id,omitempty"`
 
 	// PaymentID — id платежа, к которому был привязан активированный код.
 	// Указатель потому что сервер `app/routers/activation.py:176` явно

@@ -19,11 +19,14 @@ type ReferreeInfo struct {
 }
 
 type ReferralsInfoResult struct {
-	RefLink       string `json:"ref_link"`
-	Percent       int64  `json:"percent"`
-	Registrations int64  `json:"registrations"`
-	RefPayments   int64  `json:"ref_payments"`
-	RefTotalSum   int64  `json:"ref_total_sum"`
+	RefLink string `json:"ref_link"`
+	// RefBotLink - та же реферальная ссылка, но ведущая в бота, а не на сайт.
+	// nil, если у покупателя ещё нет реф-кода или CRM ключ не присылает.
+	RefBotLink    *string `json:"ref_bot_link,omitempty"`
+	Percent       int64   `json:"percent"`
+	Registrations int64   `json:"registrations"`
+	RefPayments   int64   `json:"ref_payments"`
+	RefTotalSum   int64   `json:"ref_total_sum"`
 	// EarnedUSD — Σ выплаченных комиссий = всего ВЫВЕДЕНО (USD). AvailableUSD
 	// — текущий остаток к выводу. «Всего заработано» потребитель считает как
 	// EarnedUSD + AvailableUSD. WithdrawnWalletUSD/WithdrawnSubscriptionUSD —
@@ -96,26 +99,48 @@ type ReferralPartner struct {
 	RecentAccruals                []PartnerAccrual          `json:"recent_accruals"`
 }
 
-// WithdrawRequestResult — результат заявки на вывод
+// WithdrawRequestResult - результат заявки на вывод
 // (POST /referrals/withdraw/request).
 //
-// Status: "no_balance" | "already_pending" | "created". Поля заполняются по
-// ветке (nullable): AmountUSD/WithdrawalID — для pending/created,
-// AvailableUSD — для no_balance.
+// Status решает, какие поля заполнены, остальные равны nil:
+//   - "created": заявка создана - WithdrawalID, AmountMinor, AmountUSD, Method;
+//   - "already_pending": открытая заявка уже есть - WithdrawalID, AmountMinor,
+//     AmountUSD этой заявки;
+//   - "no_balance": выводить нечего - AvailableMinor и AvailableUSD (нули);
+//   - "below_min": баланс есть, но меньше минимальной суммы вывода, заявка не
+//     создана - AvailableMinor, AvailableUSD, MinMinor, MinUSD.
+//
+// Суммы приходят дважды: *Minor в USD-центах, как баланс хранится в CRM, и
+// *USD для показа. Считать и сравнивать нужно по центам: доллары приходят
+// дробным числом и для арифметики не годятся.
 type WithdrawRequestResult struct {
-	Status       string   `json:"status"`
-	WithdrawalID *int64   `json:"withdrawal_id,omitempty"`
-	AmountUSD    *float64 `json:"amount_usd,omitempty"`
-	Method       *string  `json:"method,omitempty"`
-	AvailableUSD *float64 `json:"available_usd,omitempty"`
+	Status         string   `json:"status"`
+	WithdrawalID   *int64   `json:"withdrawal_id,omitempty"`
+	AmountMinor    *int64   `json:"amount_minor,omitempty"`
+	AmountUSD      *float64 `json:"amount_usd,omitempty"`
+	Method         *string  `json:"method,omitempty"`
+	AvailableMinor *int64   `json:"available_minor,omitempty"`
+	AvailableUSD   *float64 `json:"available_usd,omitempty"`
+	MinMinor       *int64   `json:"min_minor,omitempty"`
+	MinUSD         *float64 `json:"min_usd,omitempty"`
 }
 
-// WithdrawSettleResult — результат проведения вывода
+// WithdrawSettleResult - результат проведения вывода
 // (POST /referrals/withdraw/settle).
+//
+// Status:
+//   - "settled": вывод проведён, заполнены все поля, кроме CurrentStatus;
+//   - "already_settled": заявка WithdrawalID уже закрыта раньше (повтор,
+//     двойной клик, второй менеджер) - деньги не двигались, CurrentStatus
+//     несёт её нынешний статус, суммы и Method пустые;
+//   - "not_found": заявки с переданным withdrawal_id нет - заполнен только
+//     WithdrawalID.
 type WithdrawSettleResult struct {
 	Status            string  `json:"status"`
 	WithdrawalID      int64   `json:"withdrawal_id"`
 	PaidUSD           float64 `json:"paid_usd"`
 	AvailableAfterUSD float64 `json:"available_after_usd"`
 	Method            string  `json:"method"`
+	// CurrentStatus приходит только при Status == "already_settled".
+	CurrentStatus *string `json:"current_status,omitempty"`
 }

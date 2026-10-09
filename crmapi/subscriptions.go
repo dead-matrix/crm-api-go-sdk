@@ -9,6 +9,12 @@ import (
 	"github.com/dead-matrix/crm-api-go-sdk/crmapi/internal/utils"
 )
 
+// AddAccess пишет строку доступа: выдача, снятие или правка сроков
+// (POST /api/access/add).
+//
+// Адресат - человек (input.UserID), аккаунт (input.AccountID) или оба. Только
+// с UserID CRM берёт основной аккаунт человека; только с AccountID человек не
+// указывается, и Result.UserID остаётся нулём (CRM отдаёт null).
 func (c *Client) AddAccess(ctx context.Context, input AddAccessInput) (*AddAccessResult, error) {
 	if err := input.Validate(); err != nil {
 		return nil, err
@@ -19,6 +25,7 @@ func (c *Client) AddAccess(ctx context.Context, input AddAccessInput) (*AddAcces
 	var raw struct {
 		Created    bool    `json:"created"`
 		ID         *int64  `json:"id"`
+		AccountID  *int64  `json:"account_id"`
 		UserID     int64   `json:"user_id"`
 		BotID      int64   `json:"bot_id"`
 		Action     string  `json:"action"`
@@ -43,6 +50,7 @@ func (c *Client) AddAccess(ctx context.Context, input AddAccessInput) (*AddAcces
 	return &AddAccessResult{
 		Created:    raw.Created,
 		ID:         raw.ID,
+		AccountID:  raw.AccountID,
 		UserID:     raw.UserID,
 		BotID:      raw.BotID,
 		Action:     raw.Action,
@@ -51,6 +59,9 @@ func (c *Client) AddAccess(ctx context.Context, input AddAccessInput) (*AddAcces
 	}, nil
 }
 
+// ManageAccess выполняет операцию сотрудника над доступом
+// (POST /api/access/manage). Адресат задаётся так же, как у AddAccess:
+// человек, аккаунт или оба; при вызове только по аккаунту Result.UserID = 0.
 func (c *Client) ManageAccess(ctx context.Context, input AccessManageInput) (*AccessManageResult, error) {
 	input.Op = strings.ToLower(strings.TrimSpace(input.Op))
 	if err := input.Validate(); err != nil {
@@ -58,6 +69,7 @@ func (c *Client) ManageAccess(ctx context.Context, input AccessManageInput) (*Ac
 	}
 
 	var raw struct {
+		AccountID   *int64  `json:"account_id"`
 		UserID      int64   `json:"user_id"`
 		BotID       int64   `json:"bot_id"`
 		Op          string  `json:"op"`
@@ -77,6 +89,7 @@ func (c *Client) ManageAccess(ctx context.Context, input AccessManageInput) (*Ac
 	}
 
 	return &AccessManageResult{
+		AccountID:   raw.AccountID,
 		UserID:      raw.UserID,
 		BotID:       raw.BotID,
 		Op:          raw.Op,
@@ -140,19 +153,43 @@ func (c *Client) UnfreezeAccess(ctx context.Context, input FreezeAccessInput) (*
 	return &FreezeAccessResult{UserID: raw.UserID, Changed: raw.Unfrozen, Bots: raw.Bots}, nil
 }
 
+// SubscriptionsHistory возвращает историю доступа основного аккаунта человека
+// (GET /api/users/{user_id}/subscriptions/history). У человека без аккаунта
+// история пустая, а Result.AccountID равен nil.
 func (c *Client) SubscriptionsHistory(ctx context.Context, userID int64) (*SubscriptionsHistoryResult, error) {
 	if userID <= 0 {
 		return nil, &ValidationError{Message: "user_id must be a positive integer"}
 	}
+	return c.subscriptionsHistory(ctx, userID, nil)
+}
 
+// SubscriptionsHistoryForAccount возвращает историю доступа конкретного
+// аккаунта человека (тот же маршрут с ?account_id=). Нужен, когда у человека
+// несколько аккаунтов: без account_id CRM отдаёт только основной. Аккаунт, в
+// котором человек не состоит, даёт *APIError с кодом not_found (404).
+func (c *Client) SubscriptionsHistoryForAccount(ctx context.Context, userID, accountID int64) (*SubscriptionsHistoryResult, error) {
+	if userID <= 0 {
+		return nil, &ValidationError{Message: "user_id must be a positive integer"}
+	}
+	if accountID <= 0 {
+		return nil, &ValidationError{Message: "account_id must be a positive integer"}
+	}
+	query := map[string]string{"account_id": fmt.Sprintf("%d", accountID)}
+	return c.subscriptionsHistory(ctx, userID, query)
+}
+
+func (c *Client) subscriptionsHistory(ctx context.Context, userID int64, query map[string]string) (*SubscriptionsHistoryResult, error) {
 	var raw struct {
-		UserID  int64 `json:"user_id"`
-		History []struct {
-			Action     string  `json:"action"`
-			BotID      int64   `json:"bot_id"`
-			Access     any     `json:"access"`
-			ActionDate *string `json:"action_date"`
-			AccessEnd  *string `json:"access_end"`
+		UserID    int64  `json:"user_id"`
+		AccountID *int64 `json:"account_id"`
+		History   []struct {
+			Action     string   `json:"action"`
+			BotID      int64    `json:"bot_id"`
+			Access     any      `json:"access"`
+			Added      []string `json:"added"`
+			Removed    []string `json:"removed"`
+			ActionDate *string  `json:"action_date"`
+			AccessEnd  *string  `json:"access_end"`
 			Payment    *struct {
 				ID          *int64  `json:"id"`
 				AmountMinor *int64  `json:"amount_minor"`
@@ -168,7 +205,7 @@ func (c *Client) SubscriptionsHistory(ctx context.Context, userID int64) (*Subsc
 		} `json:"history"`
 	}
 
-	if err := c.get(ctx, fmt.Sprintf("/api/users/%d/subscriptions/history", userID), nil, true, &raw); err != nil {
+	if err := c.get(ctx, fmt.Sprintf("/api/users/%d/subscriptions/history", userID), query, true, &raw); err != nil {
 		return nil, err
 	}
 
@@ -212,6 +249,8 @@ func (c *Client) SubscriptionsHistory(ctx context.Context, userID int64) (*Subsc
 			Action:     h.Action,
 			BotID:      h.BotID,
 			Access:     h.Access,
+			Added:      nonNilStrings(h.Added),
+			Removed:    nonNilStrings(h.Removed),
 			ActionDate: actionDate,
 			AccessEnd:  accessEnd,
 			Payment:    paymentRef,
@@ -221,9 +260,19 @@ func (c *Client) SubscriptionsHistory(ctx context.Context, userID int64) (*Subsc
 	}
 
 	return &SubscriptionsHistoryResult{
-		UserID:  raw.UserID,
-		History: history,
+		UserID:    raw.UserID,
+		AccountID: raw.AccountID,
+		History:   history,
 	}, nil
+}
+
+// nonNilStrings заменяет отсутствующий или null-массив пустым срезом: модели
+// ответа часто уходят дальше в JSON, и там нужен [], а не null.
+func nonNilStrings(in []string) []string {
+	if in == nil {
+		return []string{}
+	}
+	return in
 }
 
 // SubscriptionState возвращает признаки подписки списка пользователей одним
