@@ -189,6 +189,36 @@ RUN_REAL_API_TESTS=1 go test ./crmapi -run TestRealAPI_Smoke -v
   - `ReferralsWithdrawRequest` принимает только `method = "wallet"`, для
     `subscription` возвращает `ValidationError` без запроса к CRM;
     `ReferralsWithdrawSettle` по-прежнему принимает `wallet` и `subscription`.
+- Данные покупателя и аккаунты (CRM SocialTraff). Старые сигнатуры и типы полей
+  не менялись, кроме поведения `AIUsage`:
+  - `AIUsage` больше не подставляет `bot_id=1`: бота выбирает CRM. Явный бот и
+    глубина отчёта задаются новым `AIUsageWithOptions(ctx, userID,
+    AIUsageOptions{BotID, Days, Months, Recent})`; кому нужен прежний запрос,
+    передаёт `AIUsageOptions{BotID: 1}`. В отчёте появились `AccountID`,
+    `KeyStats *AIKeyStats`, у функции `Unlimited` и `AdminSpentTokens` /
+    `AdminSpentUSD` / `AdminGenerations`, у генерации `Source`;
+  - карточка человека: `GetUserResult.Buyer *UserBuyer` (`nil`, если человек не
+    покупатель) и `GetUserResult.Accounts []UserAccount` (всегда не `nil`),
+    `UserBotInfo.AccountID`. `Buyer.BuyerID` и есть тот `userID`, который ждут
+    `ReferralsInfo`, `ReferralsWithdrawRequest` и `ReferralsWithdrawSettle`;
+  - новый `GetUserAccount(ctx, userID, accountID)` возвращает `UserAccountCard`:
+    участники, чаты, боты, ожидающие промокоды. Человек вне аккаунта получает
+    `*APIError` с `Code == "not_found"`;
+  - `account_id` в доступе: `AddAccessInput.AccountID` и `IdempotencyKey`,
+    действие `ActionRemove`, `AccessManageInput.AccountID`. `UserID` можно не
+    задавать, если задан `AccountID` (нужен хотя бы один); в ответе
+    `AccountID`, а `UserID` при вызове только по аккаунту равен 0;
+  - новые `ExtendUserAccessForAccount(ctx, userID, botID, days, accountID)` и
+    `SubscriptionsHistoryForAccount(ctx, userID, accountID)`; в ответах
+    `ExtendAccessResult.AccountID`, `SubscriptionsHistoryResult.AccountID`,
+    `AccessHistoryItem.Added` / `Removed`, `ActivationRedeemResult.AccountID`;
+  - `GrantAITokensResult.AccountID` и `Unlimited`;
+  - рефералы: `ReferralsInfoResult.RefBotLink`; у заявки на вывод
+    `AmountMinor`, `AvailableMinor`, `MinMinor`, `MinUSD` и статус `below_min`;
+    у проведения вывода `CurrentStatus` (только при `already_settled`);
+  - блокировки бота: `ListBotBlocksByKind(ctx, botID, kind)` с константами
+    `BotBlockKindBlocked` / `BotBlockKindUnreachable`, в списке `Kind` и
+    `Counts`, в `BotBlockReportResult` признак `Ignored`.
 
 Миграция: добавить nil-check перед разыменованием указателей.
 Компилятор Go подсветит все места, где старый код полагался на zero-value
