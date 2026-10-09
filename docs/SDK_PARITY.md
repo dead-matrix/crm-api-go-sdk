@@ -7,7 +7,11 @@
 - Go SDK — пакет `crmapi` (модуль `github.com/dead-matrix/crm-api-go-sdk`).
 - Сервер — CRM-API на FastAPI, маршруты под префиксом `/api`.
 
-**Дата актуализации:** 2026-07-21.
+**Дата актуализации:** 2026-10-09.
+
+Строки и разделы, добавленные 2026-10-09, сверены с Go SDK и кодом CRM
+SocialTraff. Python SDK в эту итерацию не сверялся: в таких строках столбец
+Python помечен «не сверялось», это не утверждение, что метода там нет.
 
 ## Как читать этот документ
 
@@ -17,6 +21,7 @@
    и где SDK обязан сохранить это значение (а не превратить в `"None"`/`""`).
 4. «Intentional differences» — где Python и Go намеренно расходятся.
 5. «Закрытые parity-баги (2026-05-20)» — что было поправлено в этой итерации.
+6. «Изменения 2026-10-09» - что добавлено в Go SDK под CRM SocialTraff.
 
 Если меняете SDK — обновите соответствующую строку и дату актуализации.
 
@@ -26,6 +31,7 @@
 |---|---|---|---|
 | accounts | ✅ | ✅ | |
 | activation | ✅ | ✅ | |
+| bot_blocks | не сверялось | ✅ | флаги «бот не может писать человеку» |
 | catalog | ✅ | ✅ | |
 | departments | ✅ | ✅ | |
 | dialogs | ✅ | ✅ | |
@@ -60,7 +66,15 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 ### activation
 | Endpoint | Python | Go | Request | Response |
 |---|---|---|---|---|
-| `POST /activation/redeem` | `activation_redeem(data)` | `ActivationRedeem(ctx, input)` | `ActivationRedeemInput { token, recipient_user_id, bot_id }` | `ActivationRedeemResult { success, error_code, error_message, user_id, bot_id, action, access, access_end, activation_code_id, payment_id }` |
+| `POST /activation/redeem` | `activation_redeem(data)` | `ActivationRedeem(ctx, input)` | `ActivationRedeemInput { token, recipient_user_id, bot_id }` | `ActivationRedeemResult { success, error_code, error_message, account_id?, user_id, bot_id, action, access, access_end, quantity, activation_code_id, payment_id?, idempotent_replay }` |
+
+### bot_blocks
+| Endpoint | Python | Go | Request | Response |
+|---|---|---|---|---|
+| `GET /bot-blocks?bot_id=` | не сверялось | `ListBotBlocks(ctx, botID)` | - | `BotBlocksListResult { bot_id, kind?, user_ids, count, counts { blocked, unreachable, total } }`; `kind` в ответе `null` |
+| `GET /bot-blocks?bot_id=&kind=` | не сверялось | `ListBotBlocksByKind(ctx, botID, kind)` | `kind`: `blocked` \| `unreachable` (константы `BotBlockKind*`), проверяется в SDK: на неизвестное значение CRM отвечает успехом с пустым списком | то же; `count` считает отфильтрованное, `counts` все флаги бота |
+| `POST /bot-blocks/unblock` | не сверялось | `UnblockBotBlock(ctx, botID, userID)` | `{ bot_id, user_id }` | `BotBlockUnblockResult { removed }` |
+| `POST /bot-blocks/report` | не сверялось | `ReportBotBlock(ctx, botID, userID, reason, errText)` | `{ bot_id, user_id, reason, error? }` | `BotBlockReportResult { added, ignored }`; `ignored=true`: CRM флаги этого бота не ведёт |
 
 ### catalog
 | Endpoint | Python | Go | Request | Response |
@@ -121,7 +135,9 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 ### referrals
 | Endpoint | Python | Go | Request | Response |
 |---|---|---|---|---|
-| `GET /referrals/info?user_id=` | `referrals_info(user_id)` | `ReferralsInfo(ctx, userID)` | — | `ReferralsInfoResult` |
+| `GET /referrals/info?user_id=` | `referrals_info(user_id)` | `ReferralsInfo(ctx, userID)` | `user_id` в CRM SocialTraff: `buyer_id` покупателя (`GetUserResult.Buyer.BuyerID`), не Telegram id | `ReferralsInfoResult` (в том числе `ref_bot_link?`, `partner?`) |
+| `POST /referrals/withdraw/request` | не сверялось | `ReferralsWithdrawRequest(ctx, userID, method)` | `{ user_id, method }`; `method` только `wallet`, `user_id` как выше | `WithdrawRequestResult { status, withdrawal_id?, amount_minor?, amount_usd?, method?, available_minor?, available_usd?, min_minor?, min_usd? }`; `status`: `created` \| `already_pending` \| `no_balance` \| `below_min` |
+| `POST /referrals/withdraw/settle` | не сверялось | `ReferralsWithdrawSettle(ctx, userID, amountMinor, method, withdrawalID*)` | `{ user_id, amount_minor, method, withdrawal_id? }`; `method`: `wallet` \| `subscription` | `WithdrawSettleResult { status, withdrawal_id, paid_usd, available_after_usd, method, current_status? }`; `status`: `settled` \| `already_settled` \| `not_found` |
 
 ### reply_templates
 | Endpoint | Python | Go | Request | Response |
@@ -156,8 +172,11 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 ### subscriptions
 | Endpoint | Python | Go | Request | Response |
 |---|---|---|---|---|
-| `POST /access/add` | `add_access(input)` | `AddAccess(ctx, input)` | `AddAccessInput` (опциональные поля опускаются — `exclude_none` / `omitempty`) | `AddAccessResult` |
-| `GET /users/{user_id}/subscriptions/history` | `subscriptions_history(user_id)` | `SubscriptionsHistory(ctx, userID)` | — | `SubscriptionsHistoryResult { user_id, history: []AccessHistoryItem }` |
+| `POST /access/add` | `add_access(input)` | `AddAccess(ctx, input)` | `AddAccessInput { user_id?, account_id?, bot_id, action, access?, action_date?, access_end?, payment_id?, ref?, days?, deltas?, idempotency_key? }`: нужен `user_id` или `account_id`; `action`: `add` \| `extend` \| `revoke` \| `refund` \| `remove` \| `custom`; опциональные поля опускаются (`exclude_none` / `omitempty`), `user_id=0` тоже | `AddAccessResult { created, id?, account_id?, user_id, bot_id, action, action_date?, access_end? }` |
+| `POST /access/manage` | не сверялось | `ManageAccess(ctx, input)` | `AccessManageInput { user_id?, account_id?, bot_id, op, features?, days?, end?, note?, idempotency_key? }`: нужен `user_id` или `account_id`; `op`: `grant` \| `extend` \| `remove_features` \| `revoke_all` | `AccessManageResult { account_id?, user_id, bot_id, op, action, access, access_end?, crm_access_id? }` |
+| `GET /users/{user_id}/subscriptions/history` | `subscriptions_history(user_id)` | `SubscriptionsHistory(ctx, userID)` | - | `SubscriptionsHistoryResult { user_id, account_id?, history: []AccessHistoryItem }`; у строки истории `added` / `removed`: ключи фич, появившиеся и пропавшие относительно предыдущей строки |
+| `GET /users/{user_id}/subscriptions/history?account_id=` | не сверялось | `SubscriptionsHistoryForAccount(ctx, userID, accountID)` | - | то же по указанному аккаунту; человек вне аккаунта: 404 `not_found` |
+| `POST /users/subscription-state` | не сверялось | `SubscriptionState(ctx, userIDs)` | `{ user_ids: []int64 }` (1..5000, дубли схлопывает CRM) | `[]SubscriptionStateItem { user_id, has_active_subscription, frozen }`; неизвестный id: `false/false` |
 | `GET /access/definitions` | `access_definitions()` | `AccessDefinitions(ctx)` | — | `AccessDefinitionsResult { main, poster, categories }` |
 | `POST /subscriptions/transfer-link?user_id=&bot_id=` | `subscriptions_transfer_link(user_id, bot_id)` | `SubscriptionsTransferLink(ctx, userID, botID)` | — | `TransferLinkResult` |
 | `POST /subscriptions/transfer/redeem` | `subscriptions_transfer_redeem(data)` | `SubscriptionsTransferRedeem(ctx, input)` | `TransferRedeemInput` | `TransferRedeemResult` |
@@ -175,11 +194,16 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 | Endpoint | Python | Go | Request | Response |
 |---|---|---|---|---|
 | `GET /users?bot_id=&limit=&offset=` | `list_users(bot_id, limit, offset)` | `ListUsers(ctx, botID, limit, offset)` | — | `ListUsersResult` |
-| `GET /users/{user_id}` | `get_user(user_id)` | `GetUser(ctx, userID)` | — | `GetUserResult` |
+| `GET /users/{user_id}` | `get_user(user_id)` | `GetUser(ctx, userID)` | - | `GetUserResult { user_id, full_name?, username?, status?, has_active_subscription, frozen, bots_info: []UserBotInfo, buyer?: UserBuyer, accounts: []UserAccount }`; `bots_info[].account_id?`; `UserBuyer { buyer_id, email?, display_name?, ref_code?, refer?, landing?, created_at }`; `UserAccount { account_id, title, role, access?, access_expiry?, access_end?, is_personal, is_primary, owner_buyer_id, created_at, joined_at, members_count, chats_count, bots_count }` |
+| `GET /users/{user_id}/accounts/{account_id}` | не сверялось | `GetUserAccount(ctx, userID, accountID)` | - | `UserAccountCard { account_id, title, is_personal, is_primary, created_at, owner_buyer_id, role, access?, access_end?, access_expiry?, members[], chats[], bots[], promo_pending[] }`; человек вне аккаунта: 404 `not_found` (`APIError`) |
 | `POST /users` | `create_user(input)` | `CreateUser(ctx, input)` | `CreateUserInput` | `CreateUserResult` (идемпотентно) |
 | `PUT /users/{user_id}` | `update_user(user_id, input)` | `UpdateUser(ctx, userID, input)` | `UpdateUserInput` | `UpdateUserResult` |
-| `POST /users/{user_id}/access/extend?bot_id=&days=` | `extend_user_access(user_id, bot_id, days)` | `ExtendUserAccess(ctx, userID, botID, days)` | — | `ExtendAccessResult` |
+| `POST /users/{user_id}/access/extend?bot_id=&days=` | `extend_user_access(user_id, bot_id, days)` | `ExtendUserAccess(ctx, userID, botID, days)` | без тела: продлевается основной аккаунт | `ExtendAccessResult { user_id, account_id?, access_end? }` |
+| `POST /users/{user_id}/access/extend?bot_id=&days=` | не сверялось | `ExtendUserAccessForAccount(ctx, userID, botID, days, accountID)` | `{ account_id }` | то же; человек вне аккаунта: 404 `not_found` |
 | `POST /users/{user_id}/ai-limit/extend?millions=` | `extend_ai_limit(user_id, millions)` | `ExtendAILimit(ctx, userID, millions)` | — | `ExtendAiLimitResult` |
+| `POST /users/{user_id}/ai-tokens/grant?tokens=&function=&ref=&bot_id=` | не сверялось | `GrantAITokens(ctx, userID, tokens, function, ref, botID)` | - (всё в query; `bot_id` обязателен в SDK) | `GrantAITokensResult { granted, account_id, function, tokens, previous_ai_limit, ai_limit, balance_tokens, unlimited }`; `previous_ai_limit` / `ai_limit` у CRM SocialTraff всегда `null` (в Go нули) |
+| `GET /users/{user_id}/ai-usage` | не сверялось | `AIUsage(ctx, userID)` | - (без `bot_id`: бота выбирает CRM) | `AIUsageResult { bot_id, account_id, by_function, daily, monthly, recent, key_stats? }`; у функции `unlimited`, `admin_spent_tokens`, `admin_spent_usd`, `admin_generations`; у генерации `source?`; `AIKeyStats { mask, usage_usd, limit_usd?, limit_remaining_usd?, disabled }` |
+| `GET /users/{user_id}/ai-usage?bot_id=&days=&months=&recent=` | не сверялось | `AIUsageWithOptions(ctx, userID, AIUsageOptions{BotID, Days, Months, Recent})` | в query уходят только поля больше нуля; границы CRM: `days` 1..180, `months` 1..24, `recent` 1..500 | то же |
 
 ## Auth flow
 
@@ -234,6 +258,24 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 | `GET /api/payments/invoice/{uuid}` | `client_email`/`referer_id`/`staff_id`/`pay_link`/`pay_url` | nullable | `Optional[T]` | `*T` |
 | `GET /api/payments/invoice/{uuid}` | `payment_method` | non-platega провайдеры | `Optional[str]` | `*string` |
 | `GET /api/payments` | `items[].*` (аналогично) | nullable | `Optional[T]` | `*T` |
+| `POST /api/activation/redeem` | `account_id` | повтор погашенного кода по старой строке доступа без аккаунта | не сверялось | `*int64` |
+| `GET /api/users/{id}` | `buyer` | человек не покупатель продукта | не сверялось | `*UserBuyer` |
+| `GET /api/users/{id}` | `buyer.email` / `display_name` / `ref_code` / `refer` / `landing` | не заполнено | не сверялось | `*string` |
+| `GET /api/users/{id}` | `bots_info[].account_id` | у человека нет аккаунта | не сверялось | `*int64` |
+| `GET /api/users/{id}`, `GET /api/users/{id}/accounts/{account_id}` | `access` / `access_expiry` | у аккаунта нет активного доступа; `access_expiry` ещё и у строк без карты сроков | не сверялось | `map[string]bool` / `map[string]string` (nil) |
+| `GET /api/users/{id}`, `GET /api/users/{id}/accounts/{account_id}` | `access_end` | нет активного доступа | не сверялось | `*time.Time` |
+| `GET /api/users/{id}/accounts/{account_id}` | `members[].tg_id` | покупатель без привязанного Telegram | не сверялось | `*int64` |
+| `GET /api/users/{id}/accounts/{account_id}` | `members[].email` / `display_name` | не заполнено | не сверялось | `*string` |
+| `POST /api/access/add`, `POST /api/access/manage` | `user_id` | вызов только по `account_id` | не сверялось | `int64` (null даёт 0, см. Intentional differences) |
+| `POST /api/access/add`, `POST /api/access/manage`, `POST /api/users/{id}/access/extend` | `account_id` | CRM без этого ключа | не сверялось | `*int64` |
+| `GET /api/users/{id}/subscriptions/history` | `account_id` | у человека нет аккаунта | не сверялось | `*int64` |
+| `GET /api/users/{id}/ai-usage` | `key_stats` | ключа ещё нет или провайдер не ответил | не сверялось | `*AIKeyStats` |
+| `GET /api/users/{id}/ai-usage` | `key_stats.limit_usd` / `limit_remaining_usd` | ключ без лимита (ноль значил бы «исчерпан») | не сверялось | `*float64` |
+| `GET /api/users/{id}/ai-usage` | `recent[].source` | CRM без этого ключа | не сверялось | `*string` |
+| `GET /api/referrals/info` | `ref_bot_link` | у покупателя нет реф-кода | не сверялось | `*string` |
+| `POST /api/referrals/withdraw/request` | `withdrawal_id` / `amount_minor` / `amount_usd` / `method` / `available_minor` / `available_usd` / `min_minor` / `min_usd` | поле не относится к статусу ответа (ключ отсутствует) | не сверялось | `*int64` / `*float64` / `*string` |
+| `POST /api/referrals/withdraw/settle` | `current_status` | любой статус, кроме `already_settled` | не сверялось | `*string` |
+| `GET /api/bot-blocks` | `kind` | запрос без фильтра | не сверялось | `*string` |
 
 ## Wire-format request body
 
@@ -247,6 +289,15 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 
 Исключение: `POST /api/dialogs/status` всегда шлёт **явный** `status_id: null`
 для clear-кейса (как Python, так и Go) — это паритет в обоих направлениях.
+
+Go, с 2026-10-09:
+
+- `POST /api/access/add` и `POST /api/access/manage`: `user_id` опускается при
+  нуле. CRM отвергает `user_id: 0`, а вызов только по `account_id` законен.
+- `POST /api/users/{id}/access/extend`: `ExtendUserAccess` идёт без тела,
+  тело `{ "account_id": N }` шлёт только `ExtendUserAccessForAccount`.
+- `GET /api/users/{id}/ai-usage`: `bot_id` и остальные параметры уходят, только
+  если заданы в `AIUsageOptions`.
 
 ## Intentional differences
 
@@ -270,6 +321,14 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 7. **Локальная валидация** (sales_decks options 0..4, max 5; reply-template kinds
    `single|album`, item types) хардкожена в обоих SDK как константы. Совпадают
    между SDK и сервером.
+8. **Go `AddAccessResult.UserID` / `AccessManageResult.UserID` остались `int64`**,
+   хотя при вызове только по `account_id` CRM отдаёт `user_id: null`. Тип не
+   менялся ради совместимости: null даёт 0, а адресата в этом случае несёт
+   `AccountID`.
+9. **Go `UserAccount.Access` / `UserAccountCard.Access` типизированы как
+   `map[string]bool`**, а `UserBotInfo.Access` остался `any`. У аккаунта значение
+   приводится по истинности, как это делает CRM: у строк доступа без карты
+   сроков там бывает не булево значение, и оно не должно ронять разбор карточки.
 
 ## Закрытые parity-баги (2026-05-20)
 
@@ -287,6 +346,37 @@ Webhook-эндпоинты CRM-API наружу не выставляются и
 10. **`DialogSearchItem.status` / `status_color` non-nullable** — поведенчески давали `"None"` в Python. Стали `Optional[str]` / `*string`. Файлы: `crm_api/models/dialogs.py`, `crm_api/client/dialogs.py`, `crmapi/models_dialogs.go`, `crmapi/dialogs.go`.
 11. **Go `ActivationRedeemResult.PaymentID int64`** — `null` от сервера декодировался в `0`, неотличимо от валидного payment_id. Стал `*int64`. Файлы: `crmapi/models_activation.go`, `crmapi/activation.go`.
 12. **Go `DeliveryRef.LastUsedAt/CreatedAt/UpdatedAt *string`** — сырая ISO-строка вместо `*time.Time`. Стали `*time.Time` для паритета с Python `Optional[datetime]`. Файлы: `crmapi/models_reply_templates.go`, `crmapi/reply_templates.go`.
+
+## Изменения 2026-10-09 (Go SDK, CRM SocialTraff)
+
+Подписка в CRM SocialTraff принадлежит аккаунту, а не человеку. Правки дают
+Go SDK все поля карточки человека и все параметры, которые CRM принимает.
+Экспортированные сигнатуры и типы существующих полей не менялись.
+
+1. **Карточка человека.** `GetUserResult.Buyer`, `GetUserResult.Accounts`,
+   `UserBotInfo.AccountID`; новый `GetUserAccount`. Файлы: `crmapi/users.go`,
+   `crmapi/models_users.go`.
+2. **`account_id` в доступе.** `AddAccessInput.AccountID` / `IdempotencyKey`,
+   действие `ActionRemove`, `AccessManageInput.AccountID`; `user_id` не
+   обязателен при заданном аккаунте; `account_id` в ответах `AddAccess`,
+   `ManageAccess`, `ExtendUserAccess`, `SubscriptionsHistory`,
+   `ActivationRedeem`; новые `ExtendUserAccessForAccount` и
+   `SubscriptionsHistoryForAccount`; `added` / `removed` в строке истории.
+   Файлы: `crmapi/subscriptions.go`, `crmapi/requests_subscriptions.go`,
+   `crmapi/models_subscriptions.go`, `crmapi/users.go`, `crmapi/activation.go`.
+3. **`AIUsage` больше не шлёт `bot_id=1`.** Изменение поведения: раньше метод
+   всегда подставлял бота 1, у CRM SocialTraff бот один и это 10. Теперь бота
+   выбирает CRM; явный бот и глубина задаются `AIUsageWithOptions`. Вызывающий,
+   которому нужен именно бот 1, передаёт `AIUsageOptions{BotID: 1}`. В отчёте
+   добавлены `account_id`, `key_stats`, `unlimited`, `admin_*`, `source`.
+   Файлы: `crmapi/ai_usage.go`.
+4. **`GrantAITokens`:** `account_id` и `unlimited` в ответе. Файлы:
+   `crmapi/models_users.go`.
+5. **Рефералы:** `ref_bot_link`, суммы заявки в центах, статус `below_min`,
+   `current_status` у проведения вывода. Файлы: `crmapi/referrals.go`,
+   `crmapi/models_referrals.go`.
+6. **Блокировки бота:** `ListBotBlocksByKind`, `kind` и `counts` в списке,
+   `ignored` в report. Файлы: `crmapi/bot_blocks.go`.
 
 ## Breaking changes от этой итерации
 
