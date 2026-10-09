@@ -23,6 +23,11 @@ type AccountItem struct {
 	Tagged      DayTotal `json:"tagged"`
 	Views       DayTotal `json:"views"`
 	Reactions   DayTotal `json:"reactions"`
+	// Лайкер и чаттинг: сегодня (МСК) и всего по аккаунту.
+	DayLike     int64 `json:"day_like"`
+	AllLike     int64 `json:"all_like"`
+	DayChatting int64 `json:"day_chatting"`
+	AllChatting int64 `json:"all_chatting"`
 	// FirstLoad — дата первой загрузки аккаунта. CRM хранит наивный datetime
 	// (без таймзоны) и отдаёт ISO-строку — поэтому НЕ time.Time (его JSON-
 	// анмаршал требует RFC3339 с зоной и упал бы на "2026-05-01T12:30:00").
