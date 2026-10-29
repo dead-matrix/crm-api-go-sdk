@@ -212,10 +212,10 @@ func TestListUsersValidationFailsWithoutHTTP(t *testing.T) {
 
 	client := mustNewClient(t, server.URL, server.Client())
 	cases := []struct {
-		name           string
-		botID          int64
-		limit          int64
-		offset         int64
+		name   string
+		botID  int64
+		limit  int64
+		offset int64
 	}{
 		{"bot_id zero", 0, 100, 0},
 		{"bot_id negative", -1, 100, 0},

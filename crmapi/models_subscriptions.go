@@ -19,9 +19,16 @@ type AccessStaffRef struct {
 }
 
 type AccessHistoryItem struct {
-	Action     string            `json:"action"`
-	BotID      int64             `json:"bot_id"`
-	Access     any               `json:"access,omitempty"`
+	Action string `json:"action"`
+	BotID  int64  `json:"bot_id"`
+	Access any    `json:"access,omitempty"`
+	// Added / Removed - что операция изменила: ключи фич, появившиеся и
+	// пропавшие относительно предыдущей (более старой) строки истории. Access
+	// хранит состояние после операции целиком, и по нему одному не видно, что
+	// именно выдали или сняли. Всегда не nil; старая CRM без этих ключей даёт
+	// пустые срезы.
+	Added      []string          `json:"added"`
+	Removed    []string          `json:"removed"`
 	ActionDate *time.Time        `json:"action_date,omitempty"`
 	AccessEnd  *time.Time        `json:"access_end,omitempty"`
 	Payment    *AccessPaymentRef `json:"payment,omitempty"`
@@ -30,8 +37,12 @@ type AccessHistoryItem struct {
 }
 
 type SubscriptionsHistoryResult struct {
-	UserID  int64               `json:"user_id"`
-	History []AccessHistoryItem `json:"history"`
+	UserID int64 `json:"user_id"`
+	// AccountID - аккаунт, чья история возвращена: запрошенный явно или
+	// основной аккаунт человека. nil, если у человека нет аккаунта (история
+	// тогда пустая) или CRM старая и ключа не присылает.
+	AccountID *int64              `json:"account_id,omitempty"`
+	History   []AccessHistoryItem `json:"history"`
 }
 
 // AccessDefinitionsResult is the response of AccessDefinitions.
@@ -126,7 +137,13 @@ type TransferRedeemResult struct {
 // AccessManageInput is the request body for ManageAccess (POST /api/access/manage):
 // ручная выдача/снятие доступа сотрудником без оплаты.
 type AccessManageInput struct {
-	UserID         int64      `json:"user_id"`
+	// UserID - Telegram id человека. Нужен хотя бы один из UserID и AccountID:
+	// без AccountID действие идёт в основной аккаунт человека. Ноль в запрос
+	// не попадает: CRM отвергает user_id=0, а вызов только по аккаунту законен.
+	UserID int64 `json:"user_id,omitempty"`
+	// AccountID - аккаунт, чей доступ меняется. Вместе с UserID человек обязан
+	// состоять в этом аккаунте, иначе CRM ответит 404 not_found.
+	AccountID      *int64     `json:"account_id,omitempty"`
 	BotID          int64      `json:"bot_id"`
 	Op             string     `json:"op"`
 	Features       []string   `json:"features,omitempty"`
@@ -139,8 +156,8 @@ type AccessManageInput struct {
 // Validate checks required fields and the op enum. Бизнес-валидация (фичи,
 // days/end по операции) выполняется сервером.
 func (in AccessManageInput) Validate() error {
-	if in.UserID <= 0 {
-		return &ValidationError{Message: "user_id must be a positive integer"}
+	if err := validateAccessTarget(in.UserID, in.AccountID); err != nil {
+		return err
 	}
 	if in.BotID <= 0 {
 		return &ValidationError{Message: "bot_id must be a positive integer"}
@@ -154,7 +171,11 @@ func (in AccessManageInput) Validate() error {
 }
 
 // AccessManageResult is the response of ManageAccess.
+//
+// AccountID - аккаунт, в который записана операция (nil у старой CRM без
+// этого ключа). UserID равен нулю, если вызов шёл только по AccountID.
 type AccessManageResult struct {
+	AccountID   *int64     `json:"account_id,omitempty"`
 	UserID      int64      `json:"user_id"`
 	BotID       int64      `json:"bot_id"`
 	Op          string     `json:"op"`

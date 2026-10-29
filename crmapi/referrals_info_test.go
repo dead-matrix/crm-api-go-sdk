@@ -201,3 +201,35 @@ func TestReferralsInfoWithoutPartnerFromLegacyCRM(t *testing.T) {
 		t.Fatalf("legacy fields = %q / %d", res.RefLink, res.Percent)
 	}
 }
+
+// ref_bot_link верхнего уровня: строка у покупателя с реф-кодом, null без кода,
+// у старой CRM ключа нет вовсе.
+func TestReferralsInfo_RefBotLink(t *testing.T) {
+	const tail = `"percent":20,"registrations":0,"ref_payments":0,"ref_total_sum":0,
+		"earned_usd":0,"available_usd":0,"withdrawn_wallet_usd":0,"withdrawn_subscription_usd":0,"referrees":[]`
+	cases := map[string]struct {
+		data string
+		want *string
+	}{
+		"link":   {`{"ref_link":"https://socialtraff.com/?ref=OWNER1","ref_bot_link":"https://t.me/st_bot?start=OWNER1",` + tail + `}`, ptrTo("https://t.me/st_bot?start=OWNER1")},
+		"null":   {`{"ref_link":null,"ref_bot_link":null,` + tail + `}`, nil},
+		"absent": {`{"ref_link":"https://traffsoft.com/?bot=7",` + tail + `}`, nil},
+	}
+	for name, tc := range cases {
+		server := referralsInfoServer(t, tc.data)
+		client := mustNewClient(t, server.URL, server.Client())
+		res, err := client.ReferralsInfo(context.Background(), 9001)
+		server.Close()
+		if err != nil {
+			t.Fatalf("%s: ReferralsInfo error: %v", name, err)
+		}
+		switch {
+		case tc.want == nil && res.RefBotLink != nil:
+			t.Fatalf("%s: RefBotLink = %q, want nil", name, *res.RefBotLink)
+		case tc.want != nil && (res.RefBotLink == nil || *res.RefBotLink != *tc.want):
+			t.Fatalf("%s: RefBotLink = %v, want %q", name, res.RefBotLink, *tc.want)
+		}
+	}
+}
+
+func ptrTo[T any](v T) *T { return &v }

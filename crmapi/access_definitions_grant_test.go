@@ -120,3 +120,25 @@ func TestGrantAITokens_SendsBotID(t *testing.T) {
 		t.Fatalf("result = %+v", res)
 	}
 }
+
+// CRM SocialTraff отдаёт аккаунт начисления и признак безлимита, а легаси-поля
+// previous_ai_limit/ai_limit всегда null: они должны остаться нулями.
+func TestGrantAITokens_AccountAndUnlimited(t *testing.T) {
+	server := newCRMTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		wantRequest(t, r, http.MethodPost, "/api/users/42/ai-tokens/grant")
+		writeSuccess(w, `{"granted":true,"account_id":5,"function":"comment","tokens":1000000,
+			"previous_ai_limit":null,"ai_limit":null,"balance_tokens":2500000,"unlimited":true}`)
+	})
+
+	client := mustNewClient(t, server.URL, server.Client())
+	res, err := client.GrantAITokens(context.Background(), 42, 1000000, "comment", "ref-12345678", 10)
+	if err != nil {
+		t.Fatalf("GrantAITokens error: %v", err)
+	}
+	if !res.Granted || res.AccountID != 5 || !res.Unlimited || res.BalanceTokens != 2500000 {
+		t.Fatalf("result = %+v", res)
+	}
+	if res.PreviousAILimit != 0 || res.AILimit != 0 {
+		t.Fatalf("legacy limits = %d/%d, want zeros for null", res.PreviousAILimit, res.AILimit)
+	}
+}

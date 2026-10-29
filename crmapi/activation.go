@@ -27,6 +27,7 @@ func (c *Client) ActivationRedeem(ctx context.Context, input ActivationRedeemInp
 	}
 
 	var raw struct {
+		AccountID        *int64  `json:"account_id"`
 		UserID           int64   `json:"user_id"`
 		BotID            int64   `json:"bot_id"`
 		Action           string  `json:"action"`
@@ -56,6 +57,7 @@ func (c *Client) ActivationRedeem(ctx context.Context, input ActivationRedeemInp
 
 	return &ActivationRedeemResult{
 		Success:          true,
+		AccountID:        raw.AccountID,
 		UserID:           raw.UserID,
 		BotID:            raw.BotID,
 		Action:           raw.Action,
